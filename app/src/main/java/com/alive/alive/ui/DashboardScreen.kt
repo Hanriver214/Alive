@@ -14,19 +14,32 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.List
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -34,6 +47,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.alive.alive.R
 import com.alive.alive.state.DayState
@@ -43,51 +58,121 @@ import com.alive.alive.state.ScoreType
 fun DashboardScreen(
     viewModel: MainViewModel
 ) {
-    val state by viewModel.dayState.collectAsStateWithLifecycle()
-    val cfg by viewModel.config.collectAsStateWithLifecycle()
+    var showSettings by remember { mutableStateOf(false) }
+    var showLogs by remember { mutableStateOf(false) }
+    var menuExpanded by remember { mutableStateOf(false) }
 
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        modifier = Modifier.fillMaxSize()
     ) {
-        Text(
-            text = "今天，${state.dayKey.ifEmpty { "—" }}",
-            style = MaterialTheme.typography.headlineMedium
-        )
-        HorizontalDivider()
-
-        StatusCard(state)
-
-        ScoreBreakdownCard(state)
-
-        if (!state.checkedIn) {
-            Button(
-                onClick = { viewModel.triggerActiveCheckIn() },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("我挺好（手动签到）")
+        TopAppBar(
+            title = { Text("Alive") },
+            colors = TopAppBarDefaults.topAppBarColors(
+                containerColor = MaterialTheme.colorScheme.surface
+            ),
+            actions = {
+                Box {
+                    IconButton(onClick = { menuExpanded = !menuExpanded }) {
+                        Icon(Icons.Filled.MoreVert, contentDescription = "菜单")
+                    }
+                    DropdownMenu(
+                        expanded = menuExpanded,
+                        onDismissRequest = { menuExpanded = false }
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("设置") },
+                            icon = { Icon(Icons.Filled.Settings, contentDescription = null) },
+                            onClick = {
+                                menuExpanded = false
+                                showSettings = true
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("日志") },
+                            icon = { Icon(Icons.Filled.List, contentDescription = null) },
+                            onClick = {
+                                menuExpanded = false
+                                showLogs = true
+                            }
+                        )
+                    }
+                }
             }
-        } else {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer
-                )
+        )
+
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text(
+                text = "今天，${viewModel.dayState.collectAsStateWithLifecycle().value.dayKey.ifEmpty { "—" }}",
+                style = MaterialTheme.typography.headlineMedium
+            )
+            HorizontalDivider()
+
+            val state by viewModel.dayState.collectAsStateWithLifecycle()
+            StatusCard(state)
+            ScoreBreakdownCard(state)
+
+            if (!state.checkedIn) {
+                Button(
+                    onClick = { viewModel.triggerActiveCheckIn() },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("我挺好（手动签到）")
+                }
+            } else {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer
+                    )
+                ) {
+                    Text(
+                        text = "今日已签到 ✓",
+                        modifier = Modifier
+                            .padding(16.dp)
+                            .fillMaxWidth(),
+                        fontWeight = FontWeight.SemiBold,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                    )
+                }
+            }
+
+            val cfg by viewModel.config.collectAsStateWithLifecycle()
+            MailStatusCard(cfg = cfg, state = state, onSendNow = { viewModel.sendAlertMail() })
+        }
+    }
+
+    if (showSettings) {
+        Dialog(
+            onDismissRequest = { showSettings = false },
+            properties = DialogProperties(usePlatformDefaultWidth = false)
+        ) {
+            Surface(
+                modifier = Modifier.fillMaxSize(),
+                shape = RoundedCornerShape(0.dp)
             ) {
-                Text(
-                    text = "今日已签到 ✓",
-                    modifier = Modifier
-                        .padding(16.dp)
-                        .fillMaxWidth(),
-                    fontWeight = FontWeight.SemiBold,
-                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                )
+                SettingsScreen(viewModel)
             }
         }
+    }
 
-        MailStatusCard(cfg = cfg, state = state, onSendNow = { viewModel.sendAlertMail() })
+    if (showLogs) {
+        Dialog(
+            onDismissRequest = { showLogs = false },
+            properties = DialogProperties(usePlatformDefaultWidth = false)
+        ) {
+            Surface(
+                modifier = Modifier.fillMaxSize(),
+                shape = RoundedCornerShape(0.dp)
+            ) {
+                LogViewerScreen(viewModel)
+            }
+        }
     }
 }
 
