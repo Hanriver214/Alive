@@ -22,6 +22,7 @@ import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -35,9 +36,11 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -64,6 +67,19 @@ fun DashboardScreen(
     var showSettings by remember { mutableStateOf(false) }
     var showLogs by remember { mutableStateOf(false) }
     var menuExpanded by remember { mutableStateOf(false) }
+    var showSendMailConfirm by remember { mutableStateOf(false) }
+    var showMailResult by remember { mutableStateOf<String?>(null) }
+    val state by viewModel.dayState.collectAsStateWithLifecycle()
+    val cfg by viewModel.config.collectAsStateWithLifecycle()
+    val testMailResult by viewModel.testMailResult.collectAsStateWithLifecycle()
+
+    LaunchedEffect(testMailResult) {
+        testMailResult?.let {
+            if (it.isNotBlank() && it != "正在发送…") {
+                showMailResult = it
+            }
+        }
+    }
 
     Column(
         modifier = Modifier.fillMaxSize()
@@ -116,8 +132,12 @@ fun DashboardScreen(
             )
             HorizontalDivider()
 
-            val state by viewModel.dayState.collectAsStateWithLifecycle()
             StatusCard(state)
+            MailStatusCard(
+                cfg = cfg,
+                state = state,
+                onSendNow = { showSendMailConfirm = true }
+            )
             ScoreBreakdownCard(state)
 
             if (!state.checkedIn) {
@@ -144,9 +164,6 @@ fun DashboardScreen(
                     )
                 }
             }
-
-            val cfg by viewModel.config.collectAsStateWithLifecycle()
-            MailStatusCard(cfg = cfg, state = state, onSendNow = { viewModel.sendAlertMail() })
         }
     }
 
@@ -159,7 +176,7 @@ fun DashboardScreen(
                 modifier = Modifier.fillMaxSize(),
                 shape = RoundedCornerShape(0.dp)
             ) {
-                SettingsScreen(viewModel)
+                SettingsScreen(viewModel, onClose = { showSettings = false })
             }
         }
     }
@@ -176,6 +193,45 @@ fun DashboardScreen(
                 LogViewerScreen(viewModel)
             }
         }
+    }
+
+    if (showSendMailConfirm) {
+        AlertDialog(
+            onDismissRequest = { showSendMailConfirm = false },
+            title = { Text("发送提醒邮件") },
+            text = {
+                Text("确定立即向 ${cfg.to} 发送提醒邮件？")
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showSendMailConfirm = false
+                        viewModel.sendAlertMail()
+                        showMailResult = "正在发送…"
+                    }
+                ) {
+                    Text("确定发送")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showSendMailConfirm = false }) {
+                    Text("取消")
+                }
+            }
+        )
+    }
+
+    showMailResult?.let { result ->
+        AlertDialog(
+            onDismissRequest = { showMailResult = null },
+            title = { Text(if (result.contains("成功") || result.contains("已")) "发送成功" else "提示") },
+            text = { Text(result) },
+            confirmButton = {
+                TextButton(onClick = { showMailResult = null }) {
+                    Text("确定")
+                }
+            }
+        )
     }
 }
 

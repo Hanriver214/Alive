@@ -55,7 +55,8 @@ import androidx.compose.material.icons.filled.Save
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
-    viewModel: MainViewModel
+    viewModel: MainViewModel,
+    onClose: () -> Unit = {}
 ) {
     var isEditing by remember { mutableStateOf(false) }
     val cfg by viewModel.config.collectAsStateWithLifecycle()
@@ -93,7 +94,7 @@ fun SettingsScreen(
                 containerColor = MaterialTheme.colorScheme.surface
             ),
             navigationIcon = {
-                IconButton(onClick = {}) {
+                IconButton(onClick = onClose) {
                     Icon(Icons.Filled.Close, contentDescription = "关闭")
                 }
             },
