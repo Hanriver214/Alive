@@ -20,7 +20,6 @@ enum class AliveEvent(val logTag: String) {
     B("B"),
     C("C"),
     D("D"),
-    E("E"),
     F("F")
 }
 
@@ -30,7 +29,6 @@ data class DayState(
     val eventB: Boolean = false,
     val eventC: Boolean = false,
     val eventD: Boolean = false,
-    val eventE: Boolean = false,
     val eventF: Boolean = false,
     val passiveCheckIn: Boolean = false,
     val activeCheckIn: Boolean = false,
@@ -41,7 +39,7 @@ data class DayState(
     val checkedIn: Boolean get() = passiveCheckIn || activeCheckIn
 
     /** 已标记的事件数量。 */
-    val markedCount: Int get() = listOf(eventA, eventB, eventC, eventD, eventE, eventF).count { it }
+    val markedCount: Int get() = listOf(eventA, eventB, eventC, eventD, eventF).count { it }
 }
 
 /**
@@ -61,7 +59,6 @@ class DailyEventManager(
         val B = booleanPreferencesKey("b")
         val C = booleanPreferencesKey("c")
         val D = booleanPreferencesKey("d")
-        val E = booleanPreferencesKey("e")
         val F = booleanPreferencesKey("f")
         val PASSIVE = booleanPreferencesKey("passive")
         val ACTIVE = booleanPreferencesKey("active")
@@ -76,7 +73,6 @@ class DailyEventManager(
             eventB = p[Keys.B] ?: false,
             eventC = p[Keys.C] ?: false,
             eventD = p[Keys.D] ?: false,
-            eventE = p[Keys.E] ?: false,
             eventF = p[Keys.F] ?: false,
             passiveCheckIn = p[Keys.PASSIVE] ?: false,
             activeCheckIn = p[Keys.ACTIVE] ?: false,
@@ -101,7 +97,6 @@ class DailyEventManager(
                 p[Keys.B] = false
                 p[Keys.C] = false
                 p[Keys.D] = false
-                p[Keys.E] = false
                 p[Keys.F] = false
                 p[Keys.PASSIVE] = false
                 p[Keys.ACTIVE] = false
@@ -126,36 +121,33 @@ class DailyEventManager(
             return false
         }
         val firstTime = when (event) {
-                AliveEvent.A -> !current().eventA
-                AliveEvent.B -> !current().eventB
-                AliveEvent.C -> !current().eventC
-                AliveEvent.D -> !current().eventD
-                AliveEvent.E -> !current().eventE
-                AliveEvent.F -> !current().eventF
+            AliveEvent.A -> !current().eventA
+            AliveEvent.B -> !current().eventB
+            AliveEvent.C -> !current().eventC
+            AliveEvent.D -> !current().eventD
+            AliveEvent.F -> !current().eventF
+        }
+        context.dayStateDataStore.edit { p ->
+            if (p[Keys.DAY] != BeijingTime.today().toString()) {
+                p[Keys.DAY] = BeijingTime.today().toString()
+                p[Keys.A] = false
+                p[Keys.B] = false
+                p[Keys.C] = false
+                p[Keys.D] = false
+                p[Keys.F] = false
+                p[Keys.PASSIVE] = false
+                p[Keys.ACTIVE] = false
+                p[Keys.CARE_SHOWN] = false
+                p[Keys.EMAIL_SENT] = false
             }
-            context.dayStateDataStore.edit { p ->
-                if (p[Keys.DAY] != BeijingTime.today().toString()) {
-                    p[Keys.DAY] = BeijingTime.today().toString()
-                    p[Keys.A] = false
-                    p[Keys.B] = false
-                    p[Keys.C] = false
-                    p[Keys.D] = false
-                    p[Keys.E] = false
-                    p[Keys.F] = false
-                    p[Keys.PASSIVE] = false
-                    p[Keys.ACTIVE] = false
-                    p[Keys.CARE_SHOWN] = false
-                    p[Keys.EMAIL_SENT] = false
-                }
-                when (event) {
-                    AliveEvent.A -> p[Keys.A] = true
-                    AliveEvent.B -> p[Keys.B] = true
-                    AliveEvent.C -> p[Keys.C] = true
-                    AliveEvent.D -> p[Keys.D] = true
-                    AliveEvent.E -> p[Keys.E] = true
-                    AliveEvent.F -> p[Keys.F] = true
-                }
+            when (event) {
+                AliveEvent.A -> p[Keys.A] = true
+                AliveEvent.B -> p[Keys.B] = true
+                AliveEvent.C -> p[Keys.C] = true
+                AliveEvent.D -> p[Keys.D] = true
+                AliveEvent.F -> p[Keys.F] = true
             }
+        }
         log(event.logTag, detail)
         // 检查是否达成 2/3
         val after = current()

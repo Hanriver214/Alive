@@ -36,17 +36,27 @@ class AliveForegroundService : Service() {
     private var powerReceiver: PowerReceiver? = null
     private var mobileDataObserver: MobileDataObserver? = null
     private var sensorObserver: SensorObserver? = null
-    private var keyboardObserver: KeyboardObserver? = null
     private var wifiObserver: WifiObserver? = null
 
     override fun onCreate() {
         super.onCreate()
         NotificationHelper.ensureChannels(this)
         registerListeners()
-        mobileDataObserver = MobileDataObserver(this, handler).also { it.start() }
-        sensorObserver = SensorObserver(this).also { it.start() }
-        keyboardObserver = KeyboardObserver(this).also { it.start() }
-        wifiObserver = WifiObserver(this).also { it.start() }
+        mobileDataObserver = MobileDataObserver(this, handler).also {
+            runCatching { it.start() }.onFailure { e ->
+                Log.e("Alive/Service", "MobileDataObserver start failed", e)
+            }
+        }
+        sensorObserver = SensorObserver(this).also {
+            runCatching { it.start() }.onFailure { e ->
+                Log.e("Alive/Service", "SensorObserver start failed", e)
+            }
+        }
+        wifiObserver = WifiObserver(this).also {
+            runCatching { it.start() }.onFailure { e ->
+                Log.e("Alive/Service", "WifiObserver start failed", e)
+            }
+        }
         scope.launch {
             DailyEventManager(this@AliveForegroundService, AliveDatabase.getInstance(this@AliveForegroundService).eventLogDao())
                 .resetIfNewDay()
@@ -71,13 +81,11 @@ class AliveForegroundService : Service() {
 
     override fun onDestroy() {
         unregisterListeners()
-        mobileDataObserver?.stop()
+        mobileDataObserver?.runCatching { stop() }
         mobileDataObserver = null
-        sensorObserver?.stop()
+        sensorObserver?.runCatching { stop() }
         sensorObserver = null
-        keyboardObserver?.stop()
-        keyboardObserver = null
-        wifiObserver?.stop()
+        wifiObserver?.runCatching { stop() }
         wifiObserver = null
         scope.launch {
             AliveDatabase.getInstance(this@AliveForegroundService).eventLogDao()

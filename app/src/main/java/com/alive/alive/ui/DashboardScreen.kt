@@ -77,10 +77,6 @@ fun DashboardScreen(
             done = state.eventD
         )
         EventRow(
-            label = stringResource(R.string.event_e_label),
-            done = state.eventE
-        )
-        EventRow(
             label = stringResource(R.string.event_f_label),
             done = state.eventF
         )
@@ -120,7 +116,7 @@ fun DashboardScreen(
 private fun StatusCard(state: DayState) {
     val statusText = when {
         state.checkedIn -> "今日已签到 ✓"
-        state.markedCount > 0 -> "监测中…（${state.markedCount}/6）"
+        state.markedCount > 0 -> "监测中…（${state.markedCount}/5）"
         else -> "尚未签到，等待 12:00 关怀"
     }
     Card(
