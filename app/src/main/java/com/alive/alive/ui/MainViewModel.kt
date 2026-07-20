@@ -121,6 +121,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 _testMailResult.value = "请填写完整的邮箱信息"
                 return@launch
             }
+            _testMailResult.value = "正在发送…"
             val testCfg = cfg.copy(
                 subject = "[Alive 测试] ${cfg.subject}",
                 body = "这是一封测试邮件。\n\n${cfg.body}"
@@ -129,8 +130,25 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             result.onSuccess {
                 _testMailResult.value = "测试邮件发送成功"
             }.onFailure { e ->
-                _testMailResult.value = "发送失败: ${e.message}"
+                val hint = when {
+                    e.message?.contains("EOF", true) == true && cfg.port == 587 ->
+                        "\n提示：587 端口被网络拦截，建议切换为 465 端口重试"
+                    e.message?.contains("EOF", true) == true ->
+                        "\n提示：连接被重置，请检查网络或更换端口"
+                    e.message?.contains("auth", true) == true || e.message?.contains("535", true) == true ->
+                        "\n提示：认证失败，请确认应用密码/授权码正确"
+                    else -> ""
+                }
+                _testMailResult.value = "发送失败: ${e.message}$hint"
             }
+        }
+    }
+
+    fun diagnoseSmtp(cfg: SmtpConfig) {
+        viewModelScope.launch {
+            _testMailResult.value = "正在诊断网络…"
+            val result = SmtpMailer.diagnose(cfg)
+            _testMailResult.value = result.getOrElse { "诊断异常: ${it.message}" }
         }
     }
 

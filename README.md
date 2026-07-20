@@ -66,6 +66,13 @@ cosign verify-blob app-release.apk \
 
 ## Changelog
 
+### v1.1.2
+
+- **修复** Gmail 587 端口 `[EOF]` 进一步加固：信任所有主机、关闭主机名校验、开启 JavaMail debug 日志
+- **新增** SMTP 网络诊断按钮：先探测原始 TCP 是否连通，区分网络问题与配置问题
+- **新增** 智能错误提示：检测到 EOF/Auth 失败时自动给出解决建议
+- **新增** Gmail 587 端口使用警告，引导用户切换 465 端口
+
 ### v1.1.1
 
 - **修复** Gmail 等 587 端口 STARTTLS 握手失败（`[EOF]`），增强 TLS 配置（显式信任主机 + TLSv1.2）

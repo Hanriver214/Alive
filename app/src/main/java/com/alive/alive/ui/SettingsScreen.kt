@@ -113,6 +113,13 @@ fun SettingsScreen(
             singleLine = true,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
         )
+        if (draft.host.contains("gmail", true) && draft.port == 587) {
+            Text(
+                text = "提示：Gmail 的 587 端口在某些网络下会被拦截，如遇 [EOF] 错误请改为 465 端口",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error
+            )
+        }
 
         OutlinedTextField(
             value = draft.user,
@@ -182,7 +189,7 @@ fun SettingsScreen(
         val testResult by viewModel.testMailResult.collectAsStateWithLifecycle()
         LaunchedEffect(testResult) {
             if (testResult != null) {
-                kotlinx.coroutines.delay(3000)
+                kotlinx.coroutines.delay(8000)
                 viewModel.clearTestMailResult()
             }
         }
@@ -193,6 +200,14 @@ fun SettingsScreen(
         ) {
             Text("发送测试邮件")
         }
+
+        OutlinedButton(
+            onClick = { viewModel.diagnoseSmtp(draft) },
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("诊断网络连接")
+        }
+
         testResult?.let {
             Text(
                 text = it,
