@@ -1,7 +1,6 @@
 package com.alive.alive.ui
 
 import android.app.Application
-import android.content.Context
 import android.content.Intent
 import androidx.core.content.FileProvider
 import androidx.lifecycle.AndroidViewModel
@@ -76,13 +75,14 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch { dayMgr.resetIfNewDay() }
     }
 
-    fun exportLogs(context: Context) {
+    fun exportLogs() {
         viewModelScope.launch {
             val logs = dao.listAll()
             if (logs.isEmpty()) {
                 _exportResult.value = "暂无日志可导出"
                 return@launch
             }
+            val ctx = getApplication<Application>()
             val csv = buildString {
                 appendLine("timestamp,dayKey,eventType,detail")
                 logs.forEach {
@@ -91,9 +91,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             }
             val time = Instant.now().atZone(ZoneId.of("Asia/Shanghai"))
                 .format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"))
-            val file = File(context.cacheDir, "alive_logs_$time.csv")
+            val file = File(ctx.cacheDir, "alive_logs_$time.csv")
             file.writeText(csv, Charsets.UTF_8)
-            val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+            val uri = FileProvider.getUriForFile(ctx, "${ctx.packageName}.fileprovider", file)
             val shareIntent = Intent(Intent.ACTION_SEND).apply {
                 type = "text/csv"
                 putExtra(Intent.EXTRA_STREAM, uri)
@@ -102,7 +102,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             }
             val chooser = Intent.createChooser(shareIntent, "分享日志")
             chooser.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            context.startActivity(chooser)
+            ctx.startActivity(chooser)
             _exportResult.value = "已导出 ${logs.size} 条日志"
         }
     }

@@ -47,7 +47,7 @@ fun LogViewerScreen(
                 style = MaterialTheme.typography.headlineMedium,
                 modifier = Modifier.weight(1f)
             )
-            TextButton(onClick = { viewModel.exportLogs(viewModel.getApplication()) }) {
+            TextButton(onClick = { viewModel.exportLogs() }) {
                 Text("导出")
             }
             TextButton(onClick = { viewModel.clearLogs() }) {
