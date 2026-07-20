@@ -35,12 +35,18 @@ class AliveForegroundService : Service() {
     private var unlockReceiver: UnlockReceiver? = null
     private var powerReceiver: PowerReceiver? = null
     private var mobileDataObserver: MobileDataObserver? = null
+    private var sensorObserver: SensorObserver? = null
+    private var keyboardObserver: KeyboardObserver? = null
+    private var wifiObserver: WifiObserver? = null
 
     override fun onCreate() {
         super.onCreate()
         NotificationHelper.ensureChannels(this)
         registerListeners()
         mobileDataObserver = MobileDataObserver(this, handler).also { it.start() }
+        sensorObserver = SensorObserver(this).also { it.start() }
+        keyboardObserver = KeyboardObserver(this).also { it.start() }
+        wifiObserver = WifiObserver(this).also { it.start() }
         scope.launch {
             DailyEventManager(this@AliveForegroundService, AliveDatabase.getInstance(this@AliveForegroundService).eventLogDao())
                 .resetIfNewDay()
@@ -67,6 +73,12 @@ class AliveForegroundService : Service() {
         unregisterListeners()
         mobileDataObserver?.stop()
         mobileDataObserver = null
+        sensorObserver?.stop()
+        sensorObserver = null
+        keyboardObserver?.stop()
+        keyboardObserver = null
+        wifiObserver?.stop()
+        wifiObserver = null
         scope.launch {
             AliveDatabase.getInstance(this@AliveForegroundService).eventLogDao()
                 .insert(com.alive.alive.data.EventLog(

@@ -72,6 +72,18 @@ fun DashboardScreen(
             label = stringResource(R.string.event_c_label),
             done = state.eventC
         )
+        EventRow(
+            label = stringResource(R.string.event_d_label),
+            done = state.eventD
+        )
+        EventRow(
+            label = stringResource(R.string.event_e_label),
+            done = state.eventE
+        )
+        EventRow(
+            label = stringResource(R.string.event_f_label),
+            done = state.eventF
+        )
 
         Spacer(modifier = Modifier.height(8.dp))
 
@@ -108,7 +120,7 @@ fun DashboardScreen(
 private fun StatusCard(state: DayState) {
     val statusText = when {
         state.checkedIn -> "今日已签到 ✓"
-        state.markedCount > 0 -> "监测中…（${state.markedCount}/3）"
+        state.markedCount > 0 -> "监测中…（${state.markedCount}/6）"
         else -> "尚未签到，等待 12:00 关怀"
     }
     Card(

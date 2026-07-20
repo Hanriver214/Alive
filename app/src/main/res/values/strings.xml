@@ -30,8 +30,11 @@
     <string name="tab_settings">设置</string>
 
     <string name="event_a_label">解锁 + 应用前台</string>
-    <string name="event_b_label">充电</string>
+    <string name="event_b_label">充电/断电</string>
     <string name="event_c_label">数据流量开关变化</string>
+    <string name="event_d_label">手机翻转</string>
+    <string name="event_e_label">输入法键盘唤起</string>
+    <string name="event_f_label">WiFi 连接变化</string>
 
     <string name="status_checkin_done">今日已签到 ✓</string>
     <string name="status_monitoring">监测中…（%1$d/3）</string>
