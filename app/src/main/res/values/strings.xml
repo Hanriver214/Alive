@@ -36,7 +36,7 @@
     <string name="score_unlock">解锁</string>
     <string name="score_screen_locked">未解锁亮屏 ≥2 分钟</string>
     <string name="score_screen_unlocked">解锁后亮屏 ≥30 分钟</string>
-    <string name="score_foreground">前台应用切换</string>
+    <string name="score_foreground">其他应用启动</string>
     <string name="score_power">充电/拔电</string>
     <string name="score_mobile_data">数据流量开关</string>
     <string name="score_flip">手机翻转</string>

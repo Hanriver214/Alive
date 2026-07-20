@@ -22,7 +22,7 @@ import kotlinx.coroutines.launch
  * 守护进程常驻前台服务：
  *  - 启动后立即成为 Foreground Service
  *  - 动态注册 UnlockReceiver / PowerReceiver（系统广播只能动态接收）
- *  - 启动 MobileDataObserver / SensorObserver / ScreenStateObserver / ForegroundAppObserver
+ *  - 启动 MobileDataObserver / SensorObserver / ScreenStateObserver / AppLaunchObserver
  *  - 重排 0:00 / 12:00 / 18:00 / 20:00 / 22:00 闹钟
  *  - 跨天保护：若启动时发现日期已变，先 reset
  */
@@ -36,7 +36,7 @@ class AliveForegroundService : Service() {
     private var mobileDataObserver: MobileDataObserver? = null
     private var sensorObserver: SensorObserver? = null
     private var screenStateObserver: ScreenStateObserver? = null
-    private var foregroundAppObserver: ForegroundAppObserver? = null
+    private var appLaunchObserver: AppLaunchObserver? = null
 
     override fun onCreate() {
         super.onCreate()
@@ -57,9 +57,9 @@ class AliveForegroundService : Service() {
                 Log.e("Alive/Service", "ScreenStateObserver start failed", e)
             }
         }
-        foregroundAppObserver = ForegroundAppObserver(this, handler).also {
+        appLaunchObserver = AppLaunchObserver(this, handler).also {
             runCatching { it.start() }.onFailure { e ->
-                Log.e("Alive/Service", "ForegroundAppObserver start failed", e)
+                Log.e("Alive/Service", "AppLaunchObserver start failed", e)
             }
         }
         scope.launch {
@@ -92,8 +92,8 @@ class AliveForegroundService : Service() {
         sensorObserver = null
         screenStateObserver?.runCatching { stop() }
         screenStateObserver = null
-        foregroundAppObserver?.runCatching { stop() }
-        foregroundAppObserver = null
+        appLaunchObserver?.runCatching { stop() }
+        appLaunchObserver = null
         scope.launch {
             AliveDatabase.getInstance(this@AliveForegroundService).eventLogDao()
                 .insert(com.alive.alive.data.EventLog(
