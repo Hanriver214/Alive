@@ -297,8 +297,7 @@ private fun MailStatusCard(
             Text(
                 text = when {
                     !cfg.enabled -> "未启用"
-                    cfg.to.isBlank() || cfg.host.isBlank() -> "配置不完整"
-                    cfg.pass.isBlank() -> "已锁定，请打开应用解锁"
+                    cfg.to.isBlank() || cfg.host.isBlank() || cfg.pass.isBlank() -> "配置不完整"
                     state.emailSent20 || state.emailSent22 || state.emailSent -> "今日已发送 ✓"
                     else -> "监控中，未签到时 20:00 起发送"
                 },

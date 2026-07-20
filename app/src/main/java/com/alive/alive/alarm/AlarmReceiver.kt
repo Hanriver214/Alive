@@ -101,7 +101,7 @@ class AlarmReceiver : BroadcastReceiver() {
             return
         }
         if (cfg.pass.isBlank()) {
-            mgr.markEmailSent(slot, false, "SMTP 配置已锁定，请打开应用解锁后才能发送 ($reason)")
+            mgr.markEmailSent(slot, false, "SMTP 应用密码未配置，无法发送 ($reason)")
             return
         }
         val result = SmtpMailer.send(cfg)

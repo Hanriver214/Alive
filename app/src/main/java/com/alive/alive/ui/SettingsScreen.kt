@@ -1,6 +1,5 @@
 package com.alive.alive.ui
 
-import android.app.Activity
 import android.content.Intent
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -49,13 +48,9 @@ fun SettingsScreen(
     viewModel: MainViewModel
 ) {
     val cfg by viewModel.config.collectAsStateWithLifecycle()
-    val isMasterSet by viewModel.isMasterPasswordSet.collectAsStateWithLifecycle()
-    val isUnlocked by viewModel.isUnlocked.collectAsStateWithLifecycle()
-    val cryptoMessage by viewModel.cryptoMessage.collectAsStateWithLifecycle()
+    val exportResult by viewModel.exportResult.collectAsStateWithLifecycle()
 
     var draft by remember(cfg) { mutableStateOf(cfg) }
-    var showSetMasterDialog by remember { mutableStateOf(false) }
-    var showUnlockDialog by remember { mutableStateOf(false) }
     var showResetConfirm by remember { mutableStateOf(false) }
 
     val context = LocalContext.current
@@ -72,10 +67,10 @@ fun SettingsScreen(
         }
     }
 
-    LaunchedEffect(cryptoMessage) {
-        if (cryptoMessage != null) {
+    LaunchedEffect(exportResult) {
+        if (exportResult != null) {
             delay(5000)
-            viewModel.clearCryptoMessage()
+            viewModel.clearExportResult()
         }
     }
 
@@ -86,10 +81,6 @@ fun SettingsScreen(
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        // ===== 加密存储区 =====
-        Text("加密存储", style = MaterialTheme.typography.headlineMedium)
-        HorizontalDivider()
-
         Card(
             modifier = Modifier.fillMaxWidth(),
             colors = CardDefaults.cardColors(
@@ -98,54 +89,11 @@ fun SettingsScreen(
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Text(
-                    text = when {
-                        !isMasterSet -> "尚未设置加密密码"
-                        isUnlocked -> "已解锁 · 可编辑应用密码"
-                        else -> "已锁定 · 应用密码已加密保护"
-                    },
-                    style = MaterialTheme.typography.bodyLarge
-                )
-                Text(
-                    text = "SMTP 应用密码使用您自定义的加密密码在本机加密保存。" +
-                        "忘记加密密码只能重置（清除所有 SMTP 配置），无法恢复。",
+                    text = "SMTP 应用密码使用 Android KeyStore 在本机加密保存。" +
+                        "重置配置将清除所有设置，导出的配置可在另一台设备导入。",
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 4.dp)
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                Spacer(modifier = Modifier.height(8.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    if (!isMasterSet) {
-                        Button(
-                            onClick = { showSetMasterDialog = true },
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Text("设置加密密码")
-                        }
-                    } else if (!isUnlocked) {
-                        Button(
-                            onClick = { showUnlockDialog = true },
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Text("解锁")
-                        }
-                    } else {
-                        OutlinedButton(
-                            onClick = { viewModel.lock() },
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Text("锁定")
-                        }
-                    }
-                    OutlinedButton(
-                        onClick = { showResetConfirm = true },
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Text("重置")
-                    }
-                }
                 Spacer(modifier = Modifier.height(8.dp))
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -153,8 +101,7 @@ fun SettingsScreen(
                 ) {
                     OutlinedButton(
                         onClick = { viewModel.exportSmtpConfig() },
-                        modifier = Modifier.weight(1f),
-                        enabled = isMasterSet
+                        modifier = Modifier.weight(1f)
                     ) {
                         Text("导出配置")
                     }
@@ -164,8 +111,14 @@ fun SettingsScreen(
                     ) {
                         Text("导入配置")
                     }
+                    OutlinedButton(
+                        onClick = { showResetConfirm = true },
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text("重置")
+                    }
                 }
-                cryptoMessage?.let {
+                exportResult?.let {
                     Text(
                         text = it,
                         style = MaterialTheme.typography.bodySmall,
@@ -180,11 +133,9 @@ fun SettingsScreen(
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        // ===== SMTP 配置区 =====
         Text("SMTP 邮件配置", style = MaterialTheme.typography.headlineMedium)
         HorizontalDivider()
 
-        val editable = !isMasterSet || isUnlocked
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
@@ -195,8 +146,7 @@ fun SettingsScreen(
             )
             Switch(
                 checked = draft.enabled,
-                onCheckedChange = { draft = draft.copy(enabled = it) },
-                enabled = editable
+                onCheckedChange = { draft = draft.copy(enabled = it) }
             )
         }
 
@@ -207,22 +157,19 @@ fun SettingsScreen(
         ) {
             OutlinedButton(
                 onClick = { draft = draft.copy(host = "smtp.gmail.com", port = 587) },
-                modifier = Modifier.weight(1f),
-                enabled = editable
+                modifier = Modifier.weight(1f)
             ) {
                 Text("Gmail")
             }
             OutlinedButton(
                 onClick = { draft = draft.copy(host = "smtp.qq.com", port = 465) },
-                modifier = Modifier.weight(1f),
-                enabled = editable
+                modifier = Modifier.weight(1f)
             ) {
                 Text("QQ")
             }
             OutlinedButton(
                 onClick = { draft = draft.copy(host = "smtp.163.com", port = 465) },
-                modifier = Modifier.weight(1f),
-                enabled = editable
+                modifier = Modifier.weight(1f)
             ) {
                 Text("163")
             }
@@ -233,8 +180,7 @@ fun SettingsScreen(
             onValueChange = { draft = draft.copy(host = it) },
             label = { Text("SMTP 服务器 (如 smtp.qq.com)") },
             modifier = Modifier.fillMaxWidth(),
-            singleLine = true,
-            enabled = editable
+            singleLine = true
         )
 
         OutlinedTextField(
@@ -245,8 +191,7 @@ fun SettingsScreen(
             label = { Text("端口 (465=SSL, 587=STARTTLS)") },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-            enabled = editable
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
         )
         if (draft.host.contains("gmail", true) && draft.port == 587) {
             Text(
@@ -261,8 +206,7 @@ fun SettingsScreen(
             onValueChange = { draft = draft.copy(user = it) },
             label = { Text("发件邮箱地址") },
             modifier = Modifier.fillMaxWidth(),
-            singleLine = true,
-            enabled = editable
+            singleLine = true
         )
 
         OutlinedTextField(
@@ -272,25 +216,15 @@ fun SettingsScreen(
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
             visualTransformation = PasswordVisualTransformation(),
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-            enabled = editable,
-            readOnly = isMasterSet && !isUnlocked
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password)
         )
-        if (isMasterSet && !isUnlocked) {
-            Text(
-                text = "应用密码已加密保存，需先解锁才能查看或修改",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
 
         OutlinedTextField(
             value = draft.to,
             onValueChange = { draft = draft.copy(to = it) },
             label = { Text("收件邮箱地址") },
             modifier = Modifier.fillMaxWidth(),
-            singleLine = true,
-            enabled = editable
+            singleLine = true
         )
 
         OutlinedTextField(
@@ -298,8 +232,7 @@ fun SettingsScreen(
             onValueChange = { draft = draft.copy(subject = it) },
             label = { Text("邮件标题") },
             modifier = Modifier.fillMaxWidth(),
-            singleLine = true,
-            enabled = editable
+            singleLine = true
         )
 
         OutlinedTextField(
@@ -308,8 +241,7 @@ fun SettingsScreen(
             label = { Text("邮件正文") },
             modifier = Modifier
                 .fillMaxWidth()
-                .height(120.dp),
-            enabled = editable
+                .height(120.dp)
         )
 
         OutlinedTextField(
@@ -320,24 +252,16 @@ fun SettingsScreen(
             label = { Text("重发间隔（小时，1-24）") },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-            enabled = editable
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
         )
 
         Spacer(modifier = Modifier.height(4.dp))
 
         Button(
-            onClick = {
-                if (!isMasterSet) {
-                    showSetMasterDialog = true
-                } else {
-                    viewModel.saveConfig(draft)
-                }
-            },
-            modifier = Modifier.fillMaxWidth(),
-            enabled = editable || !isMasterSet
+            onClick = { viewModel.saveConfig(draft) },
+            modifier = Modifier.fillMaxWidth()
         ) {
-            Text(if (!isMasterSet) "设置加密密码并保存" else "保存")
+            Text("保存")
         }
 
         Spacer(modifier = Modifier.height(8.dp))
@@ -352,8 +276,7 @@ fun SettingsScreen(
 
         Button(
             onClick = { viewModel.sendTestMail(draft) },
-            modifier = Modifier.fillMaxWidth(),
-            enabled = isUnlocked || !isMasterSet
+            modifier = Modifier.fillMaxWidth()
         ) {
             Text("发送测试邮件")
         }
@@ -385,108 +308,17 @@ fun SettingsScreen(
         )
     }
 
-    // ===== 设置加密密码对话框 =====
-    if (showSetMasterDialog) {
-        var pwd by remember { mutableStateOf("") }
-        var pwdConfirm by remember { mutableStateOf("") }
-        AlertDialog(
-            onDismissRequest = { showSetMasterDialog = false },
-            title = { Text("设置加密密码") },
-            text = {
-                Column {
-                    Text(
-                        text = "此密码用于加密 SMTP 应用密码。忘记后只能重置删除配置，无法恢复。",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.error
-                    )
-                    Spacer(modifier = Modifier.height(12.dp))
-                    OutlinedTextField(
-                        value = pwd,
-                        onValueChange = { pwd = it },
-                        label = { Text("加密密码") },
-                        singleLine = true,
-                        visualTransformation = PasswordVisualTransformation(),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password)
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    OutlinedTextField(
-                        value = pwdConfirm,
-                        onValueChange = { pwdConfirm = it },
-                        label = { Text("再次输入") },
-                        singleLine = true,
-                        visualTransformation = PasswordVisualTransformation(),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password)
-                    )
-                }
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        if (pwd.isNotBlank() && pwd == pwdConfirm) {
-                            viewModel.setMasterPassword(pwd, draft)
-                            showSetMasterDialog = false
-                        }
-                    },
-                    enabled = pwd.isNotBlank() && pwd == pwdConfirm
-                ) {
-                    Text("确定")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showSetMasterDialog = false }) {
-                    Text("取消")
-                }
-            }
-        )
-    }
-
-    // ===== 解锁对话框 =====
-    if (showUnlockDialog) {
-        var pwd by remember { mutableStateOf("") }
-        AlertDialog(
-            onDismissRequest = { showUnlockDialog = false },
-            title = { Text("输入加密密码解锁") },
-            text = {
-                OutlinedTextField(
-                    value = pwd,
-                    onValueChange = { pwd = it },
-                    label = { Text("加密密码") },
-                    singleLine = true,
-                    visualTransformation = PasswordVisualTransformation(),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password)
-                )
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        viewModel.unlock(pwd)
-                        showUnlockDialog = false
-                    },
-                    enabled = pwd.isNotBlank()
-                ) {
-                    Text("解锁")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showUnlockDialog = false }) {
-                    Text("取消")
-                }
-            }
-        )
-    }
-
-    // ===== 重置确认对话框 =====
     if (showResetConfirm) {
         AlertDialog(
             onDismissRequest = { showResetConfirm = false },
-            title = { Text("重置加密配置") },
+            title = { Text("重置配置") },
             text = {
-                Text("将清除所有 SMTP 配置和加密密码，无法恢复。确定继续？")
+                Text("将清除所有 SMTP 配置，无法恢复。确定继续？")
             },
             confirmButton = {
                 TextButton(
                     onClick = {
-                        viewModel.resetAllCrypto()
+                        viewModel.saveConfig(SmtpConfig())
                         showResetConfirm = false
                     }
                 ) {

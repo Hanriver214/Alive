@@ -17,10 +17,12 @@ object NotificationHelper {
     const val CHANNEL_FOREGROUND = "alive_foreground"
     const val CHANNEL_CARE = "alive_care"
     const val CHANNEL_CHECKIN = "alive_checkin"
+    const val CHANNEL_LOCKED = "alive_locked"
 
     const val NOTIF_FOREGROUND_ID = 1001
     const val NOTIF_CARE_ID = 1002
     const val NOTIF_CHECKIN_ID = 1003
+    const val NOTIF_LOCKED_ID = 1004
 
     const val ACTION_ACTIVE_CHECKIN = "com.alive.alive.action.ACTIVE_CHECKIN"
 
@@ -51,6 +53,13 @@ object NotificationHelper {
                 "签到结果",
                 NotificationManager.IMPORTANCE_DEFAULT
             ).apply { description = "主动/被动签到完成时的提示" }
+        )
+        nm.createNotificationChannel(
+            NotificationChannel(
+                CHANNEL_LOCKED,
+                "锁定提醒",
+                NotificationManager.IMPORTANCE_HIGH
+            ).apply { description = "SMTP 配置已锁定，无法发送邮件时的提醒" }
         )
     }
 
