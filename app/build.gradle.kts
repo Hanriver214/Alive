@@ -23,13 +23,29 @@ android {
         release {
             isMinifyEnabled = false
             // 开源仓库默认用 debug 签名让 assembleRelease 直接产出可装 APK；
-            // 想换成自有 release keystore 时，在 CI 里设置以下环境变量即可覆盖：
-            //   ALIVE_KEYSTORE_BASE64 / ALIVE_KEYSTORE_PASS / ALIVE_KEY_ALIAS / ALIVE_KEY_PASS
+            // 想换成自有 release keystore 时，在 CI 里设置以下 gradle.properties 即可覆盖：
+            //   alive.signing.keystore / alive.signing.keystorePass
+            //   alive.signing.keyAlias   / alive.signing.keyPass
             signingConfig = signingConfigs.getByName("debug")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+        }
+    }
+
+    // 若 gradle.properties 提供了 alive.signing.keystore 等键，则补一个 release
+    // signingConfig，并把 release buildType 切到该签名上。
+    val aliveKeystore: String? = providers.gradleProperty("alive.signing.keystore").orNull
+    if (!aliveKeystore.isNullOrEmpty()) {
+        signingConfigs.create("release") {
+            storeFile = file(providers.gradleProperty("alive.signing.keystore").get())
+            storePassword = providers.gradleProperty("alive.signing.keystorePass").get()
+            keyAlias = providers.gradleProperty("alive.signing.keyAlias").get()
+            keyPassword = providers.gradleProperty("alive.signing.keyPass").get()
+        }
+        buildTypes.getByName("release") {
+            signingConfig = signingConfigs.getByName("release")
         }
     }
 
