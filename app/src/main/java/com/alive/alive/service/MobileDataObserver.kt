@@ -7,19 +7,19 @@ import android.os.Handler
 import android.provider.Settings
 import android.util.Log
 import com.alive.alive.data.AliveDatabase
-import com.alive.alive.state.AliveEvent
 import com.alive.alive.state.DailyEventManager
+import com.alive.alive.state.ScoreType
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 
 /**
- * 事件 c：数据流量功能开启/关闭。
+ * 计分项：数据流量功能开启/关闭 +1 分。仅检测开关动作，不检测流量使用变化。
  *
  * 实现：监听 `Settings.Global.mobile_data` 的 URI 变化。
  * 该设置在用户从通知栏/设置中切换「移动数据」开关时由系统更新，
- * 与信号强弱、Wifi 切换无关，符合「数据流量功能的开/关」语义。
+ * 与信号强弱、Wifi 切换无关。
  *
  * 在 OEM 自定义 ROM 上该 URI 可能不更新，属于已知限制。
  */
@@ -58,7 +58,7 @@ class MobileDataObserver(
                     context.applicationContext,
                     AliveDatabase.getInstance(context).eventLogDao()
                 )
-                mgr.markEvent(AliveEvent.C, "数据流量$direction")
+                mgr.addScore(ScoreType.MOBILE_DATA, "数据流量$direction")
             }
         }
     }

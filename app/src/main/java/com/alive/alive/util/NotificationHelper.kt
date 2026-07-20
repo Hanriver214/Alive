@@ -72,8 +72,11 @@ object NotificationHelper {
             .build()
     }
 
-    /** 12:00 的常驻关怀通知，挂「我挺好」按钮 → 主动签到。 */
-    fun buildCare(context: Context): Notification {
+    /**
+     * 关怀通知。slot=12 为首次「你还好吗？」；slot=18 为二次更强提醒。
+     * 同一 [NOTIF_CARE_ID] 会被新通知覆盖，避免堆叠。
+     */
+    fun buildCare(context: Context, slot: Int): Notification {
         val openIntent = PendingIntent.getActivity(
             context, 1,
             Intent(context, MainActivity::class.java)
@@ -86,16 +89,19 @@ object NotificationHelper {
                 .setAction(ACTION_ACTIVE_CHECKIN),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
+        val (title, text) = when (slot) {
+            18 -> context.getString(R.string.care_notification_title_18) to
+                context.getString(R.string.care_notification_text_18)
+            else -> context.getString(R.string.care_notification_title) to
+                context.getString(R.string.care_notification_text)
+        }
         return NotificationCompat.Builder(context, CHANNEL_CARE)
             .setSmallIcon(R.drawable.ic_launcher_foreground)
-            .setContentTitle(context.getString(R.string.care_notification_title))
-            .setContentText(context.getString(R.string.care_notification_text))
-            .setStyle(
-                NotificationCompat.BigTextStyle()
-                    .bigText(context.getString(R.string.care_notification_text))
-            )
+            .setContentTitle(title)
+            .setContentText(text)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(text))
             .setOngoing(true)
-            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setPriority(if (slot == 18) NotificationCompat.PRIORITY_MAX else NotificationCompat.PRIORITY_HIGH)
             .setCategory(NotificationCompat.CATEGORY_REMINDER)
             .setContentIntent(openIntent)
             .addAction(
@@ -106,10 +112,10 @@ object NotificationHelper {
             .build()
     }
 
-    fun showCare(context: Context) {
+    fun showCare(context: Context, slot: Int = 12) {
         ensureChannels(context)
         val nm = context.getSystemService(NotificationManager::class.java)
-        nm.notify(NOTIF_CARE_ID, buildCare(context))
+        nm.notify(NOTIF_CARE_ID, buildCare(context, slot))
     }
 
     fun cancelCare(context: Context) {

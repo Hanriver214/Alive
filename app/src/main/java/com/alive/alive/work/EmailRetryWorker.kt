@@ -13,6 +13,7 @@ import com.alive.alive.state.DailyEventManager
  *
  * - 若今日已签到 → 直接 return，不再发邮件（但周期任务仍存在，下次 0:00 RESET 时由 AlarmReceiver 取消）
  * - 若邮件未启用 → return
+ * - 若 SMTP 配置已锁定（pass 未解锁）→ return 并写日志
  * - 否则发一封，写日志
  */
 class EmailRetryWorker(
@@ -32,11 +33,15 @@ class EmailRetryWorker(
         if (!cfg.enabled) {
             return Result.success()
         }
+        if (cfg.pass.isBlank()) {
+            mgr.markEmailSent(0, false, "周期重发跳过：SMTP 配置已锁定，请打开应用解锁")
+            return Result.success()
+        }
         val result = SmtpMailer.send(cfg)
         result.onSuccess {
-            mgr.markEmailSent(true, "周期重发邮件成功 → ${cfg.to}")
+            mgr.markEmailSent(0, true, "周期重发邮件成功 → ${cfg.to}")
         }.onFailure { e ->
-            mgr.markEmailSent(false, "周期重发邮件失败: ${e.message}")
+            mgr.markEmailSent(0, false, "周期重发邮件失败: ${e.message}")
         }
         // 不论成功失败都 return success，让周期任务继续；失败时下次还会再试
         return Result.success()

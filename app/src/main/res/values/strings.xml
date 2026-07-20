@@ -11,14 +11,16 @@
 
     <!-- Care notification -->
     <string name="care_channel_name">关怀提醒</string>
-    <string name="care_channel_desc">12:00 你还好吗 主动签到通知</string>
+    <string name="care_channel_desc">12:00 / 18:00 你还好吗 主动签到通知</string>
     <string name="care_notification_title">你还好吗？</string>
     <string name="care_notification_text">点击下方按钮告诉我们你挺好</string>
+    <string name="care_notification_title_18">今天还没有签到</string>
+    <string name="care_notification_text_18">已经 18:00 了，点击「我挺好」让我们知道你还在</string>
     <string name="care_notification_button">我挺好</string>
 
     <!-- Passive check-in -->
     <string name="passive_checkin_title">被动签到完成</string>
-    <string name="passive_checkin_text">今天已检测到 2 个生命迹象，自动签到</string>
+    <string name="passive_checkin_text">今日分数已达 4 分，自动签到</string>
 
     <!-- Active check-in -->
     <string name="active_checkin_title">主动签到完成</string>
@@ -29,14 +31,18 @@
     <string name="tab_logs">日志</string>
     <string name="tab_settings">设置</string>
 
-    <string name="event_a_label">解锁 + 应用前台</string>
-    <string name="event_b_label">充电/断电</string>
-    <string name="event_c_label">数据流量开关变化</string>
-    <string name="event_d_label">手机翻转</string>
-    <string name="event_f_label">WiFi 连接变化</string>
+    <string name="score_label">今日分数</string>
+    <string name="score_threshold_hint">分数 ≥ 4 即自动签到</string>
+    <string name="score_unlock">解锁</string>
+    <string name="score_screen_locked">未解锁亮屏 ≥2 分钟</string>
+    <string name="score_screen_unlocked">解锁后亮屏 ≥30 分钟</string>
+    <string name="score_foreground">前台应用切换</string>
+    <string name="score_power">充电/拔电</string>
+    <string name="score_mobile_data">数据流量开关</string>
+    <string name="score_flip">手机翻转</string>
 
     <string name="status_checkin_done">今日已签到 ✓</string>
-    <string name="status_monitoring">监测中…（%1$d/3）</string>
+    <string name="status_monitoring">监测中…（%1$d 分）</string>
     <string name="status_waiting_care">尚未签到，等待 12:00 关怀</string>
 
     <string name="settings_smtp_header">SMTP 邮件配置</string>
@@ -51,6 +57,17 @@
     <string name="settings_enabled">启用邮件通知</string>
     <string name="settings_test_mail">发送测试邮件</string>
     <string name="settings_save">保存</string>
+
+    <string name="settings_crypto_header">加密存储</string>
+    <string name="settings_crypto_master_pwd">加密密码</string>
+    <string name="settings_crypto_master_pwd_hint">用于加密 SMTP 应用密码，忘记后只能重置</string>
+    <string name="settings_crypto_set">设置加密密码</string>
+    <string name="settings_crypto_unlock">解锁</string>
+    <string name="settings_crypto_locked">已锁定 · 应用密码已加密保护</string>
+    <string name="settings_crypto_unlocked">已解锁 · 可编辑应用密码</string>
+    <string name="settings_crypto_reset">重置加密配置（清除所有 SMTP 设置）</string>
+    <string name="settings_crypto_export">导出 SMTP 配置</string>
+    <string name="settings_crypto_import">导入 SMTP 配置</string>
 
     <string name="perm_battery_optimize_title">电池优化</string>
     <string name="perm_battery_optimize_msg">需要将 Alive 加入电池优化白名单，否则系统会在锁屏后杀掉守护服务。</string>

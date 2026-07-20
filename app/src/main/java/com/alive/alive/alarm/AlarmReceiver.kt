@@ -21,10 +21,13 @@ import kotlinx.coroutines.launch
 import java.util.concurrent.TimeUnit
 
 /**
- * 三种精准闹钟的统一接收器：
- *  - RESET      0:00 重置当日，取消邮件重发周期任务，重排下一日所有闹钟
- *  - CARE       12:00 仍未签到则推送常驻通知
- *  - EMAIL_DAILY 23:59 仍未签到则发首封邮件，并启动 N 小时周期重发
+ * 五个精准闹钟的统一接收器：
+ *
+ *  - RESET      0:00  重置当日，取消邮件重发周期任务，重排下一日所有闹钟
+ *  - CARE_12    12:00 仍未签到则推送常驻通知「你还好吗？」
+ *  - CARE_18    18:00 仍未签到则再次提醒
+ *  - EMAIL_20   20:00 仍未主动签到则发首封邮件，并启动 N 小时周期重发
+ *  - EMAIL_22   22:00 仍未签到则发第二封邮件 / 更强提醒
  *
  * 处理完成后立即把同一闹钟排到次日同一时刻，保证每日循环。
  */
@@ -44,29 +47,42 @@ class AlarmReceiver : BroadcastReceiver() {
                 scope.launch {
                     mgr.resetIfNewDay()
                     WorkManager.getInstance(context).cancelUniqueWork(EmailRetryWorker.WORK_NAME)
-                    // 重排次日三个闹钟
-                    scheduler.scheduleReset()
-                    scheduler.scheduleCare()
-                    scheduler.scheduleEmailDaily()
+                    scheduler.scheduleAll()
                 }
             }
-            AlarmScheduler.ACTION_CARE -> {
+            AlarmScheduler.ACTION_CARE_12 -> {
                 scope.launch {
-                    if (mgr.isCareEligible()) {
-                        NotificationHelper.showCare(context)
-                        mgr.markCareNotificationShown()
+                    if (mgr.isCareEligible(12)) {
+                        NotificationHelper.showCare(context, slot = 12)
+                        mgr.markCareNotificationShown(12)
                     }
-                    scheduler.scheduleCare()
+                    scheduler.scheduleCare12()
                 }
             }
-            AlarmScheduler.ACTION_EMAIL_DAILY -> {
+            AlarmScheduler.ACTION_CARE_18 -> {
                 scope.launch {
-                    val s = mgr.current()
-                    if (!s.checkedIn) {
-                        sendEmailOnce(context, mgr, "23:59 首封提醒")
+                    if (mgr.isCareEligible(18)) {
+                        NotificationHelper.showCare(context, slot = 18)
+                        mgr.markCareNotificationShown(18)
+                    }
+                    scheduler.scheduleCare18()
+                }
+            }
+            AlarmScheduler.ACTION_EMAIL_20 -> {
+                scope.launch {
+                    if (mgr.isEmailEligible(20)) {
+                        sendEmailOnce(context, mgr, 20, "20:00 首封提醒")
                         startEmailRetryPeriodic(context)
                     }
-                    scheduler.scheduleEmailDaily()
+                    scheduler.scheduleEmail20()
+                }
+            }
+            AlarmScheduler.ACTION_EMAIL_22 -> {
+                scope.launch {
+                    if (mgr.isEmailEligible(22)) {
+                        sendEmailOnce(context, mgr, 22, "22:00 第二封提醒")
+                    }
+                    scheduler.scheduleEmail22()
                 }
             }
         }
@@ -75,25 +91,29 @@ class AlarmReceiver : BroadcastReceiver() {
     private suspend fun sendEmailOnce(
         context: Context,
         mgr: DailyEventManager,
+        slot: Int,
         reason: String
     ) {
         val app = context.applicationContext as AliveApp
         val cfg = app.settingsRepo.current()
         if (!cfg.enabled) {
-            mgr.markEmailSent(false, "邮件通知未启用，跳过发送 ($reason)")
+            mgr.markEmailSent(slot, false, "邮件通知未启用，跳过发送 ($reason)")
+            return
+        }
+        if (cfg.pass.isBlank()) {
+            mgr.markEmailSent(slot, false, "SMTP 配置已锁定，请打开应用解锁后才能发送 ($reason)")
             return
         }
         val result = SmtpMailer.send(cfg)
         result.onSuccess {
-            mgr.markEmailSent(true, "邮件发送成功 ($reason) → ${cfg.to}")
+            mgr.markEmailSent(slot, true, "邮件发送成功 ($reason) → ${cfg.to}")
         }.onFailure { e ->
-            mgr.markEmailSent(false, "邮件发送失败 ($reason): ${e.message}")
+            mgr.markEmailSent(slot, false, "邮件发送失败 ($reason): ${e.message}")
         }
     }
 
     private fun startEmailRetryPeriodic(context: Context) {
-        // 启动后立即用一次性任务做一次（首封），然后周期 N 小时
-        // 此处仅启动周期任务，首封已由 EMAIL_DAILY 闹钟触发
+        // 20:00 首封发出后启动周期任务，按用户设定的间隔继续重发
         val app = context.applicationContext as AliveApp
         scope.launch {
             val cfg = app.settingsRepo.configFlow.first()

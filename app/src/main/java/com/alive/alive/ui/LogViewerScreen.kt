@@ -78,7 +78,7 @@ fun LogViewerScreen(
 @Composable
 private fun LogItem(log: EventLog) {
     val time = Instant.ofEpochMilli(log.timestamp)
-        .atZone(ZoneId.of("Asia/Shanghai"))
+        .atZone(ZoneId.systemDefault())
         .format(DateTimeFormatter.ofPattern("MM-dd HH:mm:ss"))
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -112,7 +112,13 @@ private fun LogItem(log: EventLog) {
 }
 
 private fun typeColor(type: String): androidx.compose.ui.graphics.Color = when (type) {
-    "A", "B", "C" -> androidx.compose.ui.graphics.Color(0xFF1976D2)
+    "SCORE_UNLOCK" -> androidx.compose.ui.graphics.Color(0xFF1976D2)
+    "SCORE_SCREEN_LOCKED" -> androidx.compose.ui.graphics.Color(0xFF00897B)
+    "SCORE_SCREEN_UNLOCKED" -> androidx.compose.ui.graphics.Color(0xFF0288D1)
+    "SCORE_FOREGROUND" -> androidx.compose.ui.graphics.Color(0xFF7B1FA2)
+    "SCORE_POWER" -> androidx.compose.ui.graphics.Color(0xFFF57C00)
+    "SCORE_MOBILE_DATA" -> androidx.compose.ui.graphics.Color(0xFF5D4037)
+    "SCORE_FLIP" -> androidx.compose.ui.graphics.Color(0xFF6A1B9A)
     "PASSIVE_CHECKIN", "ACTIVE_CHECKIN" -> androidx.compose.ui.graphics.Color(0xFF4CAF50)
     "CARE_NOTIF" -> androidx.compose.ui.graphics.Color(0xFFFF9800)
     "EMAIL_SENT" -> androidx.compose.ui.graphics.Color(0xFF8E24AA)

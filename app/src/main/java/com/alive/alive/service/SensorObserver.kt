@@ -7,19 +7,18 @@ import android.hardware.SensorEventListener
 import android.hardware.SensorManager
 import android.util.Log
 import com.alive.alive.data.AliveDatabase
-import com.alive.alive.state.AliveEvent
 import com.alive.alive.state.DailyEventManager
+import com.alive.alive.state.ScoreType
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 
 /**
- * 事件 d：手机姿态变化。只有翻转（屏幕朝下→朝上或反之）才算事件触发标记。
+ * 计分项：手机翻转 +1 分。仅翻转计分，明显移动或振动不计分。
  *
  * 使用重力传感器检测手机翻转：
- * - 检测 z 轴加速度绝对值从 < 5 变为 > 9（或反之），表示手机从平放变为直立或翻转
- * - 翻转角度阈值：当 z 轴加速度符号改变时视为翻转
+ * - 检测 z 轴加速度符号变化（屏幕朝下↔朝上）视为翻转
  */
 class SensorObserver(private val context: Context) : SensorEventListener {
 
@@ -61,7 +60,7 @@ class SensorObserver(private val context: Context) : SensorEventListener {
                         context.applicationContext,
                         AliveDatabase.getInstance(context).eventLogDao()
                     )
-                    mgr.markEvent(AliveEvent.D, "手机翻转 (z=${z.format(1)})")
+                    mgr.addScore(ScoreType.FLIP, "手机翻转 (z=${z.format(1)})")
                 }
             }
         }

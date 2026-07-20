@@ -8,12 +8,14 @@ import java.time.ZoneId
 import java.time.ZonedDateTime
 
 /**
- * 所有时间锚点都以北京时间（UTC+8）为基准。
- * 这样即使设备时区被改到海外，监测窗口仍然对齐国内用户。
+ * 所有时间锚点都以手机系统当前时区为基准。
+ *
+ * 这样用户无论身处哪个时区，监测窗口都按本机时区的自然日 0:00 切换。
+ * 若设备时区被修改，[resetIfNewDay] 仍会以"当前系统日期 != 上次记录日期"为准触发重置。
  */
-object BeijingTime {
+object SystemTime {
 
-    val zone: ZoneId = ZoneId.of("Asia/Shanghai")
+    val zone: ZoneId = ZoneId.systemDefault()
 
     fun now(): ZonedDateTime = ZonedDateTime.now(zone)
 

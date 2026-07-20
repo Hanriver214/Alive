@@ -37,6 +37,12 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope, SharingStarted.Eagerly, SmtpConfig()
     )
 
+    val isMasterPasswordSet: StateFlow<Boolean> = settingsRepo.isMasterPasswordSet
+        .stateIn(viewModelScope, SharingStarted.Eagerly, false)
+
+    val isUnlocked: StateFlow<Boolean> = settingsRepo.isUnlocked
+        .stateIn(viewModelScope, SharingStarted.Eagerly, false)
+
     private val _logs = MutableStateFlow<List<EventLog>>(emptyList())
     val logs: StateFlow<List<EventLog>> = _logs.asStateFlow()
 
@@ -45,6 +51,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     private val _testMailResult = MutableStateFlow<String?>(null)
     val testMailResult: StateFlow<String?> = _testMailResult.asStateFlow()
+
+    private val _cryptoMessage = MutableStateFlow<String?>(null)
+    val cryptoMessage: StateFlow<String?> = _cryptoMessage.asStateFlow()
 
     init {
         observeLogs()
@@ -58,7 +67,11 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun saveConfig(cfg: SmtpConfig) {
-        viewModelScope.launch { settingsRepo.save(cfg) }
+        viewModelScope.launch {
+            runCatching { settingsRepo.save(cfg) }
+                .onSuccess { _cryptoMessage.value = "配置已保存" }
+                .onFailure { _cryptoMessage.value = "保存失败: ${it.message}" }
+        }
     }
 
     fun clearLogs() {
@@ -89,7 +102,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                     appendLine("${it.timestamp},${escapeCsv(it.dayKey)},${escapeCsv(it.eventType)},${escapeCsv(it.detail)}")
                 }
             }
-            val time = Instant.now().atZone(ZoneId.of("Asia/Shanghai"))
+            val time = Instant.now().atZone(ZoneId.systemDefault())
                 .format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"))
             val file = File(ctx.cacheDir, "alive_logs_$time.csv")
             file.writeText(csv, Charsets.UTF_8)
@@ -117,7 +130,11 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 _testMailResult.value = "请先启用邮件通知"
                 return@launch
             }
-            if (cfg.user.isBlank() || cfg.pass.isBlank() || cfg.to.isBlank()) {
+            if (cfg.pass.isBlank()) {
+                _testMailResult.value = "SMTP 配置已锁定，请先解锁"
+                return@launch
+            }
+            if (cfg.user.isBlank() || cfg.to.isBlank()) {
                 _testMailResult.value = "请填写完整的邮箱信息"
                 return@launch
             }
@@ -159,7 +176,11 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 _testMailResult.value = "邮件通知未启用"
                 return@launch
             }
-            if (cfg.user.isBlank() || cfg.pass.isBlank() || cfg.to.isBlank()) {
+            if (cfg.pass.isBlank()) {
+                _testMailResult.value = "SMTP 配置已锁定，请先解锁"
+                return@launch
+            }
+            if (cfg.user.isBlank() || cfg.to.isBlank()) {
                 _testMailResult.value = "邮箱配置不完整"
                 return@launch
             }
@@ -178,6 +199,78 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     fun clearTestMailResult() {
         _testMailResult.value = null
+    }
+
+    // ===== 加密存储相关 =====
+
+    /** 首次设置加密密码并保存整个 SMTP 配置。 */
+    fun setMasterPassword(password: String, cfg: SmtpConfig) {
+        viewModelScope.launch {
+            runCatching { settingsRepo.setMasterPassword(password, cfg) }
+                .onSuccess { _cryptoMessage.value = "加密密码已设置，SMTP 配置已加密保存" }
+                .onFailure { _cryptoMessage.value = "设置失败: ${it.message}" }
+        }
+    }
+
+    /** 用加密密码解锁。 */
+    fun unlock(password: String) {
+        viewModelScope.launch {
+            val ok = settingsRepo.unlock(password)
+            _cryptoMessage.value = if (ok) "已解锁" else "加密密码错误"
+        }
+    }
+
+    /** 锁定（清空内存中的解密 pass）。 */
+    fun lock() {
+        settingsRepo.lock()
+        _cryptoMessage.value = "已锁定"
+    }
+
+    /** 重置全部 SMTP 配置（忘记密码时使用）。 */
+    fun resetAllCrypto() {
+        viewModelScope.launch {
+            settingsRepo.resetAll()
+            _cryptoMessage.value = "已清除所有 SMTP 配置和加密密码"
+        }
+    }
+
+    /** 导出 SMTP 配置到文件并分享。 */
+    fun exportSmtpConfig() {
+        viewModelScope.launch {
+            val json = settingsRepo.exportConfig()
+            val ctx = getApplication<Application>()
+            val time = Instant.now().atZone(ZoneId.systemDefault())
+                .format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"))
+            val file = File(ctx.cacheDir, "alive_smtp_config_$time.json")
+            file.writeText(json, Charsets.UTF_8)
+            val uri = FileProvider.getUriForFile(ctx, "${ctx.packageName}.fileprovider", file)
+            val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                type = "application/json"
+                putExtra(Intent.EXTRA_STREAM, uri)
+                putExtra(Intent.EXTRA_SUBJECT, "Alive SMTP 配置 $time")
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            val chooser = Intent.createChooser(shareIntent, "导出 SMTP 配置")
+            chooser.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            ctx.startActivity(chooser)
+            _cryptoMessage.value = "已导出 SMTP 配置（含加密的应用密码）"
+        }
+    }
+
+    /** 从 JSON 文件导入 SMTP 配置。 */
+    fun importSmtpConfig(json: String) {
+        viewModelScope.launch {
+            val ok = settingsRepo.importConfig(json)
+            _cryptoMessage.value = if (ok) {
+                "导入成功，请输入原加密密码解锁"
+            } else {
+                "导入失败：JSON 格式错误"
+            }
+        }
+    }
+
+    fun clearCryptoMessage() {
+        _cryptoMessage.value = null
     }
 
     private fun escapeCsv(s: String): String {

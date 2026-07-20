@@ -13,15 +13,16 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Email
-import androidx.compose.material.icons.filled.RadioButtonUnchecked
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -36,8 +37,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.alive.alive.R
 import com.alive.alive.state.DayState
-import java.time.Instant
-import java.time.ZoneId
+import com.alive.alive.state.ScoreType
 
 @Composable
 fun DashboardScreen(
@@ -60,28 +60,7 @@ fun DashboardScreen(
 
         StatusCard(state)
 
-        EventRow(
-            label = stringResource(R.string.event_a_label),
-            done = state.eventA
-        )
-        EventRow(
-            label = stringResource(R.string.event_b_label),
-            done = state.eventB
-        )
-        EventRow(
-            label = stringResource(R.string.event_c_label),
-            done = state.eventC
-        )
-        EventRow(
-            label = stringResource(R.string.event_d_label),
-            done = state.eventD
-        )
-        EventRow(
-            label = stringResource(R.string.event_f_label),
-            done = state.eventF
-        )
-
-        Spacer(modifier = Modifier.height(8.dp))
+        ScoreBreakdownCard(state)
 
         if (!state.checkedIn) {
             Button(
@@ -116,7 +95,7 @@ fun DashboardScreen(
 private fun StatusCard(state: DayState) {
     val statusText = when {
         state.checkedIn -> "今日已签到 ✓"
-        state.markedCount > 0 -> "监测中…（${state.markedCount}/5）"
+        state.score > 0 -> "监测中…（${state.score}/${state.passiveThreshold} 分）"
         else -> "尚未签到，等待 12:00 关怀"
     }
     Card(
@@ -138,16 +117,106 @@ private fun StatusCard(state: DayState) {
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.SemiBold
             )
+            if (!state.checkedIn) {
+                Spacer(modifier = Modifier.height(8.dp))
+                val progress = (state.score.toFloat() / state.passiveThreshold).coerceIn(0f, 1f)
+                LinearProgressIndicator(
+                    progress = { progress },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Text(
+                    text = "分数 ≥ ${state.passiveThreshold} 自动签到",
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 4.dp)
+                )
+            }
             if (state.passiveCheckIn) Text("· 被动签到", fontSize = 12.sp)
             if (state.activeCheckIn) Text("· 主动签到", fontSize = 12.sp)
-            if (state.careNotificationShown) Text("· 12:00 关怀通知已推送", fontSize = 12.sp)
-            if (state.emailSent) Text("· 邮件已发送", fontSize = 12.sp)
+            if (state.careNotificationShown12) Text("· 12:00 关怀通知已推送", fontSize = 12.sp)
+            if (state.careNotificationShown18) Text("· 18:00 二次提醒已推送", fontSize = 12.sp)
+            if (state.emailSent20) Text("· 20:00 首封邮件已发送", fontSize = 12.sp)
+            if (state.emailSent22) Text("· 22:00 第二封邮件已发送", fontSize = 12.sp)
         }
     }
 }
 
 @Composable
-private fun EventRow(label: String, done: Boolean) {
+private fun ScoreBreakdownCard(state: DayState) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant
+        )
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "今日分数",
+                    style = MaterialTheme.typography.titleMedium
+                )
+                Text(
+                    text = "${state.score} 分",
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = if (state.score >= state.passiveThreshold)
+                        MaterialTheme.colorScheme.primary
+                    else MaterialTheme.colorScheme.onSurface
+                )
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+            ScoreRow(
+                label = stringResource(R.string.score_unlock),
+                count = state.unlockCount,
+                delta = ScoreType.UNLOCK.delta
+            )
+            ScoreRow(
+                label = stringResource(R.string.score_screen_locked),
+                count = if (state.screenLockedBonusAdded) 1 else 0,
+                delta = ScoreType.SCREEN_LOCKED.delta,
+                extra = "累计 ${state.screenOnLockedMs / 1000}s / 120s"
+            )
+            ScoreRow(
+                label = stringResource(R.string.score_screen_unlocked),
+                count = if (state.screenUnlockedBonusAdded) 1 else 0,
+                delta = ScoreType.SCREEN_UNLOCKED.delta,
+                extra = "累计 ${state.screenOnUnlockedMs / 1000}s / 1800s"
+            )
+            ScoreRow(
+                label = stringResource(R.string.score_foreground),
+                count = state.foregroundAppChanges,
+                delta = ScoreType.FOREGROUND_APP.delta
+            )
+            ScoreRow(
+                label = stringResource(R.string.score_power),
+                count = state.powerEvents,
+                delta = ScoreType.POWER.delta
+            )
+            ScoreRow(
+                label = stringResource(R.string.score_mobile_data),
+                count = state.mobileDataToggles,
+                delta = ScoreType.MOBILE_DATA.delta
+            )
+            ScoreRow(
+                label = stringResource(R.string.score_flip),
+                count = state.flipCount,
+                delta = ScoreType.FLIP.delta
+            )
+        }
+    }
+}
+
+@Composable
+private fun ScoreRow(
+    label: String,
+    count: Int,
+    delta: Int,
+    extra: String? = null
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -158,23 +227,39 @@ private fun EventRow(label: String, done: Boolean) {
             modifier = Modifier
                 .size(24.dp)
                 .background(
-                    if (done) MaterialTheme.colorScheme.primary else Color.LightGray,
+                    if (count > 0) MaterialTheme.colorScheme.primary else Color.LightGray,
                     CircleShape
                 ),
             contentAlignment = Alignment.Center
         ) {
             Icon(
-                imageVector = if (done) Icons.Filled.CheckCircle else Icons.Filled.RadioButtonUnchecked,
+                imageVector = if (count > 0) Icons.Filled.CheckCircle else Icons.Filled.Email,
                 contentDescription = null,
                 tint = Color.White,
-                modifier = Modifier.size(16.dp)
+                modifier = Modifier.size(14.dp)
             )
         }
         Spacer(modifier = Modifier.width(12.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.bodyLarge,
+                color = if (count > 0) MaterialTheme.colorScheme.onSurface
+                else MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            if (extra != null) {
+                Text(
+                    text = extra,
+                    fontSize = 11.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
         Text(
-            text = label,
+            text = "${count * delta} 分",
             style = MaterialTheme.typography.bodyLarge,
-            color = if (done) MaterialTheme.colorScheme.onSurface
+            fontWeight = FontWeight.SemiBold,
+            color = if (count > 0) MaterialTheme.colorScheme.primary
             else MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
@@ -190,7 +275,8 @@ private fun MailStatusCard(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceVariant
-        )
+        ),
+        shape = RoundedCornerShape(12.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -212,8 +298,9 @@ private fun MailStatusCard(
                 text = when {
                     !cfg.enabled -> "未启用"
                     cfg.to.isBlank() || cfg.host.isBlank() -> "配置不完整"
-                    state.emailSent -> "今日已发送 ✓"
-                    else -> "监控中，未签到时将发送"
+                    cfg.pass.isBlank() -> "已锁定，请打开应用解锁"
+                    state.emailSent20 || state.emailSent22 || state.emailSent -> "今日已发送 ✓"
+                    else -> "监控中，未签到时 20:00 起发送"
                 },
                 style = MaterialTheme.typography.bodyLarge,
                 fontWeight = FontWeight.SemiBold
@@ -225,7 +312,7 @@ private fun MailStatusCard(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-            if (cfg.enabled && cfg.host.isNotBlank() && cfg.user.isNotBlank()) {
+            if (cfg.enabled && cfg.host.isNotBlank() && cfg.user.isNotBlank() && cfg.pass.isNotBlank()) {
                 Spacer(modifier = Modifier.height(8.dp))
                 Button(
                     onClick = onSendNow,

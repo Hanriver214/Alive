@@ -4,7 +4,6 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
-import android.os.Build
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
@@ -23,8 +22,8 @@ import kotlinx.coroutines.launch
  * 守护进程常驻前台服务：
  *  - 启动后立即成为 Foreground Service
  *  - 动态注册 UnlockReceiver / PowerReceiver（系统广播只能动态接收）
- *  - 启动 MobileDataObserver
- *  - 重排 0:00 / 12:00 / 23:59 闹钟
+ *  - 启动 MobileDataObserver / SensorObserver / ScreenStateObserver / ForegroundAppObserver
+ *  - 重排 0:00 / 12:00 / 18:00 / 20:00 / 22:00 闹钟
  *  - 跨天保护：若启动时发现日期已变，先 reset
  */
 class AliveForegroundService : Service() {
@@ -36,7 +35,8 @@ class AliveForegroundService : Service() {
     private var powerReceiver: PowerReceiver? = null
     private var mobileDataObserver: MobileDataObserver? = null
     private var sensorObserver: SensorObserver? = null
-    private var wifiObserver: WifiObserver? = null
+    private var screenStateObserver: ScreenStateObserver? = null
+    private var foregroundAppObserver: ForegroundAppObserver? = null
 
     override fun onCreate() {
         super.onCreate()
@@ -52,9 +52,14 @@ class AliveForegroundService : Service() {
                 Log.e("Alive/Service", "SensorObserver start failed", e)
             }
         }
-        wifiObserver = WifiObserver(this).also {
+        screenStateObserver = ScreenStateObserver(this, handler).also {
             runCatching { it.start() }.onFailure { e ->
-                Log.e("Alive/Service", "WifiObserver start failed", e)
+                Log.e("Alive/Service", "ScreenStateObserver start failed", e)
+            }
+        }
+        foregroundAppObserver = ForegroundAppObserver(this, handler).also {
+            runCatching { it.start() }.onFailure { e ->
+                Log.e("Alive/Service", "ForegroundAppObserver start failed", e)
             }
         }
         scope.launch {
@@ -65,7 +70,7 @@ class AliveForegroundService : Service() {
             AliveDatabase.getInstance(this@AliveForegroundService).eventLogDao()
                 .insert(com.alive.alive.data.EventLog(
                     timestamp = System.currentTimeMillis(),
-                    dayKey = com.alive.alive.util.BeijingTime.today().toString(),
+                    dayKey = com.alive.alive.util.SystemTime.today().toString(),
                     eventType = "SERVICE_START",
                     detail = "守护服务启动"
                 ))
@@ -85,13 +90,15 @@ class AliveForegroundService : Service() {
         mobileDataObserver = null
         sensorObserver?.runCatching { stop() }
         sensorObserver = null
-        wifiObserver?.runCatching { stop() }
-        wifiObserver = null
+        screenStateObserver?.runCatching { stop() }
+        screenStateObserver = null
+        foregroundAppObserver?.runCatching { stop() }
+        foregroundAppObserver = null
         scope.launch {
             AliveDatabase.getInstance(this@AliveForegroundService).eventLogDao()
                 .insert(com.alive.alive.data.EventLog(
                     timestamp = System.currentTimeMillis(),
-                    dayKey = com.alive.alive.util.BeijingTime.today().toString(),
+                    dayKey = com.alive.alive.util.SystemTime.today().toString(),
                     eventType = "SERVICE_STOP",
                     detail = "守护服务停止"
                 ))
@@ -105,7 +112,6 @@ class AliveForegroundService : Service() {
                 this, it,
                 IntentFilter().apply {
                     addAction(Intent.ACTION_USER_PRESENT)
-                    addAction(Intent.ACTION_SCREEN_ON)
                 },
                 ContextCompat.RECEIVER_NOT_EXPORTED
             )
