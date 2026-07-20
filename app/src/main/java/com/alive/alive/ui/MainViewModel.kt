@@ -134,6 +134,30 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    fun sendAlertMail() {
+        viewModelScope.launch {
+            val cfg = settingsRepo.current()
+            if (!cfg.enabled) {
+                _testMailResult.value = "邮件通知未启用"
+                return@launch
+            }
+            if (cfg.user.isBlank() || cfg.pass.isBlank() || cfg.to.isBlank()) {
+                _testMailResult.value = "邮箱配置不完整"
+                return@launch
+            }
+            val alertCfg = cfg.copy(
+                subject = "[Alive 手动提醒] ${cfg.subject}",
+                body = "这是用户手动触发的提醒邮件。\n\n${cfg.body}"
+            )
+            val result = SmtpMailer.send(alertCfg)
+            result.onSuccess {
+                _testMailResult.value = "提醒邮件已发送"
+            }.onFailure { e ->
+                _testMailResult.value = "发送失败: ${e.message}"
+            }
+        }
+    }
+
     fun clearTestMailResult() {
         _testMailResult.value = null
     }

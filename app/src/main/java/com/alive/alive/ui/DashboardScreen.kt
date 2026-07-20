@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.RadioButtonUnchecked
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -43,6 +44,7 @@ fun DashboardScreen(
     viewModel: MainViewModel
 ) {
     val state by viewModel.dayState.collectAsStateWithLifecycle()
+    val cfg by viewModel.config.collectAsStateWithLifecycle()
 
     Column(
         modifier = Modifier
@@ -97,6 +99,8 @@ fun DashboardScreen(
                 )
             }
         }
+
+        MailStatusCard(cfg = cfg, state = state, onSendNow = { viewModel.sendAlertMail() })
     }
 }
 
@@ -165,5 +169,63 @@ private fun EventRow(label: String, done: Boolean) {
             color = if (done) MaterialTheme.colorScheme.onSurface
             else MaterialTheme.colorScheme.onSurfaceVariant
         )
+    }
+}
+
+@Composable
+private fun MailStatusCard(
+    cfg: com.alive.alive.data.SmtpConfig,
+    state: DayState,
+    onSendNow: () -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant
+        )
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = Icons.Filled.Email,
+                    contentDescription = null,
+                    tint = if (cfg.enabled) MaterialTheme.colorScheme.primary
+                    else MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "邮件通知",
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Text(
+                text = when {
+                    !cfg.enabled -> "未启用"
+                    cfg.to.isBlank() || cfg.host.isBlank() -> "配置不完整"
+                    state.emailSent -> "今日已发送 ✓"
+                    else -> "监控中，未签到时将发送"
+                },
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.SemiBold
+            )
+            if (cfg.enabled && cfg.to.isNotBlank()) {
+                Text(
+                    text = "收件人: ${cfg.to}",
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            if (cfg.enabled && cfg.host.isNotBlank() && cfg.user.isNotBlank()) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Button(
+                    onClick = onSendNow,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("立即发送提醒邮件")
+                }
+            }
+        }
     }
 }

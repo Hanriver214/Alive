@@ -39,7 +39,11 @@ object SmtpMailer {
                     put("mail.smtp.socketFactory.class", "javax.net.ssl.SSLSocketFactory")
                     put("mail.smtp.socketFactory.port", cfg.port.toString())
                 } else if (cfg.port == 587) {
+                    // STARTTLS 需要显式信任主机并限定 TLS 版本，避免 [EOF] 握手失败
                     put("mail.smtp.starttls.enable", "true")
+                    put("mail.smtp.starttls.required", "true")
+                    put("mail.smtp.ssl.trust", cfg.host)
+                    put("mail.smtp.ssl.protocols", "TLSv1.2")
                 }
             }
 

@@ -11,9 +11,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -61,6 +63,37 @@ fun SettingsScreen(
                 checked = draft.enabled,
                 onCheckedChange = { draft = draft.copy(enabled = it) }
             )
+        }
+
+        Text("快速选择服务商", style = MaterialTheme.typography.labelLarge)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            OutlinedButton(
+                onClick = {
+                    draft = draft.copy(host = "smtp.gmail.com", port = 587)
+                },
+                modifier = Modifier.weight(1f)
+            ) {
+                Text("Gmail")
+            }
+            OutlinedButton(
+                onClick = {
+                    draft = draft.copy(host = "smtp.qq.com", port = 465)
+                },
+                modifier = Modifier.weight(1f)
+            ) {
+                Text("QQ")
+            }
+            OutlinedButton(
+                onClick = {
+                    draft = draft.copy(host = "smtp.163.com", port = 465)
+                },
+                modifier = Modifier.weight(1f)
+            ) {
+                Text("163")
+            }
         }
 
         OutlinedTextField(
