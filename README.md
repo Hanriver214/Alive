@@ -64,6 +64,15 @@ cosign verify-blob app-release.apk \
 | `SCHEDULE_EXACT_ALARM` | Android 12+ 精准闹钟 |
 | `PACKAGE_USAGE_STATS` | 推断用户是否在使用手机（系统设置手动授权） |
 
+## Changelog
+
+### v1.1.0
+
+- **新增** 日志导出功能：支持将 Room 日志导出为 CSV 并通过系统分享发送
+- **新增** SMTP 测试邮件按钮：在设置页可直接发送测试邮件验证配置
+- **新增** 设置页显示应用版本号
+- **优化** 完善文件分享支持（FileProvider）
+
 ## License
 
 MIT © Hanriver214

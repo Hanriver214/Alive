@@ -18,6 +18,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -29,6 +30,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.alive.alive.data.SmtpConfig
+import com.alive.alive.BuildConfig
 
 @Composable
 fun SettingsScreen(
@@ -142,5 +144,40 @@ fun SettingsScreen(
         ) {
             Text("保存")
         }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        val testResult by viewModel.testMailResult.collectAsStateWithLifecycle()
+        LaunchedEffect(testResult) {
+            if (testResult != null) {
+                kotlinx.coroutines.delay(3000)
+                viewModel.clearTestMailResult()
+            }
+        }
+
+        Button(
+            onClick = { viewModel.sendTestMail(draft) },
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("发送测试邮件")
+        }
+        testResult?.let {
+            Text(
+                text = it,
+                style = MaterialTheme.typography.bodySmall,
+                color = if (it.contains("成功")) androidx.compose.ui.graphics.Color(0xFF4CAF50)
+                else MaterialTheme.colorScheme.error,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+        HorizontalDivider()
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            text = "版本 ${BuildConfig.VERSION_NAME} (build ${BuildConfig.VERSION_CODE})",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }

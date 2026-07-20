@@ -28,4 +28,7 @@ interface EventLogDao {
 
     @Query("SELECT COUNT(*) FROM event_log WHERE dayKey = :dayKey AND eventType = :type")
     suspend fun countByDay(dayKey: String, type: String): Int
+
+    @Query("SELECT * FROM event_log ORDER BY timestamp DESC")
+    suspend fun listAll(): List<EventLog>
 }
