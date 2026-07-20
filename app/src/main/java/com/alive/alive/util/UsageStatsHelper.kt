@@ -4,15 +4,13 @@ import android.app.AppOpsManager
 import android.app.usage.UsageEvents
 import android.app.usage.UsageStatsManager
 import android.content.Context
-import android.content.Intent
 import android.os.Process
-import android.provider.Settings
 
 /**
- * 用于事件 a：判断用户最近是否真实使用过手机。
+ * 解锁事件的辅助查询：判断用户最近是否有真实使用手机（任一应用进入前台）。
  *
- * 触发条件 = `ACTION_USER_PRESENT`（解锁）后 5 分钟内，任一应用进入前台。
- * 因为没有 AccessibilityService，我们用 UsageStatsManager 推断前台切换。
+ * 因为没有 AccessibilityService，我们用 UsageStatsManager 推断前台切换，
+ * 仅用于在解锁日志中附带"解锁后5分钟内应用前台"信息（不影响计分）。
  */
 object UsageStatsHelper {
 
@@ -33,13 +31,6 @@ object UsageStatsHelper {
             )
         }
         return mode == AppOpsManager.MODE_ALLOWED
-    }
-
-    fun openSettings(context: Context) {
-        context.startActivity(
-            Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        )
     }
 
     /** 最近 windowMillis 内是否有 ACTIVITY_RESUMED 事件（即有应用进入前台）。 */

@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">活着</string>
-    <string name="app_name_en">Alive</string>
 
     <!-- Foreground service -->
     <string name="fg_channel_name">守护服务</string>
@@ -26,13 +25,7 @@
     <string name="active_checkin_title">主动签到完成</string>
     <string name="active_checkin_text">很高兴你还在</string>
 
-    <!-- UI -->
-    <string name="tab_dashboard">今日</string>
-    <string name="tab_logs">日志</string>
-    <string name="tab_settings">设置</string>
-
-    <string name="score_label">今日分数</string>
-    <string name="score_threshold_hint">分数 ≥ 4 即自动签到</string>
+    <!-- Score labels -->
     <string name="score_unlock">解锁</string>
     <string name="score_screen_locked">未解锁亮屏 ≥2 分钟</string>
     <string name="score_screen_unlocked">解锁后亮屏 ≥30 分钟</string>
@@ -40,45 +33,4 @@
     <string name="score_power">充电/拔电</string>
     <string name="score_mobile_data">数据流量开关</string>
     <string name="score_flip">手机翻转</string>
-
-    <string name="status_checkin_done">今日已签到 ✓</string>
-    <string name="status_monitoring">监测中…（%1$d 分）</string>
-    <string name="status_waiting_care">尚未签到，等待 12:00 关怀</string>
-
-    <string name="settings_smtp_header">SMTP 邮件配置</string>
-    <string name="settings_smtp_host">SMTP 服务器</string>
-    <string name="settings_smtp_port">端口</string>
-    <string name="settings_smtp_user">发件邮箱地址</string>
-    <string name="settings_smtp_pass">应用密码 / 授权码</string>
-    <string name="settings_smtp_to">收件邮箱地址</string>
-    <string name="settings_mail_subject">邮件标题</string>
-    <string name="settings_mail_body">邮件正文</string>
-    <string name="settings_resend_hours">重发间隔（小时）</string>
-    <string name="settings_enabled">启用邮件通知</string>
-    <string name="settings_test_mail">发送测试邮件</string>
-    <string name="settings_save">保存</string>
-
-    <string name="settings_crypto_header">加密存储</string>
-    <string name="settings_crypto_master_pwd">加密密码</string>
-    <string name="settings_crypto_master_pwd_hint">用于加密 SMTP 应用密码，忘记后只能重置</string>
-    <string name="settings_crypto_set">设置加密密码</string>
-    <string name="settings_crypto_unlock">解锁</string>
-    <string name="settings_crypto_locked">已锁定 · 应用密码已加密保护</string>
-    <string name="settings_crypto_unlocked">已解锁 · 可编辑应用密码</string>
-    <string name="settings_crypto_reset">重置加密配置（清除所有 SMTP 设置）</string>
-    <string name="settings_crypto_export">导出 SMTP 配置</string>
-    <string name="settings_crypto_import">导入 SMTP 配置</string>
-
-    <string name="perm_battery_optimize_title">电池优化</string>
-    <string name="perm_battery_optimize_msg">需要将 Alive 加入电池优化白名单，否则系统会在锁屏后杀掉守护服务。</string>
-    <string name="perm_notification_title">通知权限</string>
-    <string name="perm_notification_msg">需要通知权限才能推送「你还好吗？」提醒与守护通知。</string>
-    <string name="perm_usage_title">使用情况访问</string>
-    <string name="perm_usage_msg">需要「使用情况访问」权限来检测你今天是否解锁并使用了手机。</string>
-    <string name="perm_grant">去授权</string>
-
-    <string name="start_service">启动守护</string>
-    <string name="stop_service">停止守护</string>
-    <string name="logs_empty">暂无日志</string>
-    <string name="logs_clear">清空日志</string>
 </resources>

@@ -14,20 +14,8 @@ interface EventLogDao {
     @Query("SELECT * FROM event_log ORDER BY timestamp DESC LIMIT :limit OFFSET :offset")
     fun observePage(limit: Int, offset: Int): Flow<List<EventLog>>
 
-    @Query("SELECT * FROM event_log WHERE dayKey = :dayKey ORDER BY timestamp ASC")
-    fun observeDay(dayKey: String): Flow<List<EventLog>>
-
-    @Query("SELECT * FROM event_log WHERE dayKey = :dayKey ORDER BY timestamp ASC")
-    suspend fun listDay(dayKey: String): List<EventLog>
-
     @Query("DELETE FROM event_log")
     suspend fun clearAll()
-
-    @Query("DELETE FROM event_log WHERE timestamp < :before")
-    suspend fun deleteBefore(before: Long): Int
-
-    @Query("SELECT COUNT(*) FROM event_log WHERE dayKey = :dayKey AND eventType = :type")
-    suspend fun countByDay(dayKey: String, type: String): Int
 
     @Query("SELECT * FROM event_log ORDER BY timestamp DESC")
     suspend fun listAll(): List<EventLog>

@@ -136,18 +136,9 @@ class AliveForegroundService : Service() {
     }
 
     companion object {
-        private const val TAG = "Alive/Service"
-
         fun start(context: Context) {
             val intent = Intent(context, AliveForegroundService::class.java)
             ContextCompat.startForegroundService(context, intent)
-        }
-
-        fun stop(context: Context) {
-            context.startService(Intent(context, AliveForegroundService::class.java).apply {
-                action = "ACTION_STOP"
-            })
-            runCatching { context.stopService(Intent(context, AliveForegroundService::class.java)) }
         }
     }
 }

@@ -13,15 +13,16 @@ android {
         applicationId = "com.alive.alive"
         minSdk = 26
         targetSdk = 35
-        versionCode = 7
-        versionName = "1.3.0"
+        versionCode = 8
+        versionName = "1.3.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
             // 开源仓库默认用 debug 签名让 assembleRelease 直接产出可装 APK；
             // 想换成自有 release keystore 时，在 CI 里设置以下 gradle.properties 即可覆盖：
             //   alive.signing.keystore / alive.signing.keystorePass
@@ -84,7 +85,6 @@ dependencies {
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
     implementation(libs.androidx.material.icons.extended)
-    implementation(libs.androidx.navigation.compose)
     implementation(libs.androidx.work.runtime.ktx)
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
