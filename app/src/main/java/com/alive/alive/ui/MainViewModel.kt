@@ -210,7 +210,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             val chooser = Intent.createChooser(shareIntent, "导出 SMTP 配置")
             chooser.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             ctx.startActivity(chooser)
-            _exportResult.value = "已导出 SMTP 配置（含加密的应用密码）"
+            _exportResult.value = "已导出 SMTP 配置（不含密码，导入后需重新填写）"
         }
     }
 
@@ -218,7 +218,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             val ok = settingsRepo.importConfig(json)
             _exportResult.value = if (ok) {
-                "导入成功"
+                "导入成功，请重新填写 SMTP 应用密码（密码不支持跨设备转移）"
             } else {
                 "导入失败：JSON 格式错误"
             }

@@ -46,7 +46,7 @@ class SettingsRepository(private val context: Context) {
             host = p[Keys.HOST] ?: "smtp.qq.com",
             port = p[Keys.PORT] ?: 465,
             user = p[Keys.USER] ?: "",
-            pass = CryptoHelper.decrypt(p[Keys.ENCRYPTED_PASS] ?: ""),
+            pass = runCatching { CryptoHelper.decrypt(p[Keys.ENCRYPTED_PASS] ?: "") }.getOrDefault(""),
             to = p[Keys.TO] ?: "",
             subject = p[Keys.SUBJECT] ?: "你今天还好吗？",
             body = p[Keys.BODY] ?: "今天一天没有收到 Alive 的签到，请确认手机主人状态。",
@@ -78,12 +78,13 @@ class SettingsRepository(private val context: Context) {
     suspend fun exportConfig(): String {
         val p = context.aliveDataStore.data.first()
         return JSONObject().apply {
-            put("schemaVersion", 2)
+            put("schemaVersion", 3)
             put("enabled", p[Keys.ENABLED] ?: false)
             put("host", p[Keys.HOST] ?: "smtp.qq.com")
             put("port", p[Keys.PORT] ?: 465)
             put("user", p[Keys.USER] ?: "")
-            put("encryptedPass", p[Keys.ENCRYPTED_PASS] ?: "")
+            // 密码使用设备绑定的 KeyStore 加密，无法跨设备转移，故不导出
+            put("hasPass", (p[Keys.ENCRYPTED_PASS] ?: "").isNotBlank())
             put("to", p[Keys.TO] ?: "")
             put("subject", p[Keys.SUBJECT] ?: "你今天还好吗？")
             put("body", p[Keys.BODY] ?: "今天一天没有收到 Alive 的签到，请确认手机主人状态。")
@@ -99,7 +100,8 @@ class SettingsRepository(private val context: Context) {
                 p[Keys.HOST] = obj.optString("host", "smtp.qq.com")
                 p[Keys.PORT] = obj.optInt("port", 465)
                 p[Keys.USER] = obj.optString("user", "")
-                p[Keys.ENCRYPTED_PASS] = obj.optString("encryptedPass", "")
+                // 密码设备绑定，导入时清空，需重新输入
+                p[Keys.ENCRYPTED_PASS] = ""
                 p[Keys.TO] = obj.optString("to", "")
                 p[Keys.SUBJECT] = obj.optString("subject", "你今天还好吗？")
                 p[Keys.BODY] = obj.optString("body", "今天一天没有收到 Alive 的签到，请确认手机主人状态。")

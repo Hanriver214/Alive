@@ -133,7 +133,7 @@ fun SettingsScreen(
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text(
                         text = "SMTP 应用密码使用 Android KeyStore 在本机加密保存。" +
-                            "重置配置将清除所有设置，导出的配置可在另一台设备导入。",
+                            "导出的配置不含密码，导入后需重新填写应用密码。",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
