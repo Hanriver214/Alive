@@ -21,20 +21,24 @@ private val Context.dayStateDataStore by preferencesDataStore(name = "alive_day_
  * 计分项类型。每种用户行为对应一个计分动作。
  *
  * - [UNLOCK]                解锁一次 +2
- * - [SCREEN_LOCKED]         未解锁亮屏累计 ≥2 分钟 +1（一次性）
- * - [SCREEN_UNLOCKED]       解锁后亮屏累计 ≥30 分钟 +1（一次性）
- * - [SCREEN_UNLOCKED_60]    解锁后亮屏累计 ≥60 分钟 +2（一次性，与 SCREEN_UNLOCKED 累计不独立）
- * - [FOREGROUND_APP]        前台应用变化/切换 +1
+ * - [SCREEN_LOCKED_1]       未解锁亮屏累计 ≥1 分钟 +1（一次性）
+ * - [SCREEN_LOCKED_2]       未解锁亮屏累计 ≥2 分钟再 +1（一次性）
+ * - [SCREEN_UNLOCKED_15]    解锁后亮屏累计 ≥15 分钟 +1（一次性，仅 7:00-22:30）
+ * - [SCREEN_UNLOCKED_30]    解锁后亮屏累计 ≥30 分钟再 +1（一次性）
+ * - [SCREEN_UNLOCKED_45]    解锁后亮屏累计 ≥45 分钟再 +1（一次性）
+ * - [SCREEN_UNLOCKED_60]    解锁后亮屏累计 ≥60 分钟再 +1（一次性）
  * - [POWER]                 亮屏或锁屏充电/拔电 +2
  * - [MOBILE_DATA]           移动数据开关变化 +1
  * - [FLIP]                  手机翻转 +1
  */
 enum class ScoreType(val logTag: String, val delta: Int) {
     UNLOCK("SCORE_UNLOCK", 2),
-    SCREEN_LOCKED("SCORE_SCREEN_LOCKED", 1),
-    SCREEN_UNLOCKED("SCORE_SCREEN_UNLOCKED", 1),
-    SCREEN_UNLOCKED_60("SCORE_SCREEN_UNLOCKED_60", 2),
-    FOREGROUND_APP("SCORE_FOREGROUND", 1),
+    SCREEN_LOCKED_1("SCORE_SCREEN_LOCKED_1", 1),
+    SCREEN_LOCKED_2("SCORE_SCREEN_LOCKED_2", 1),
+    SCREEN_UNLOCKED_15("SCORE_SCREEN_UNLOCKED_15", 1),
+    SCREEN_UNLOCKED_30("SCORE_SCREEN_UNLOCKED_30", 1),
+    SCREEN_UNLOCKED_45("SCORE_SCREEN_UNLOCKED_45", 1),
+    SCREEN_UNLOCKED_60("SCORE_SCREEN_UNLOCKED_60", 1),
     POWER("SCORE_POWER", 2),
     MOBILE_DATA("SCORE_MOBILE_DATA", 1),
     FLIP("SCORE_FLIP", 1)
@@ -48,14 +52,18 @@ data class DayState(
     val screenOnLockedMs: Long = 0L,
     /** 解锁后亮屏累计毫秒。 */
     val screenOnUnlockedMs: Long = 0L,
+    /** 未解锁亮屏 ≥1 分钟的 +1 分是否已计入。 */
+    val screenLockedBonus1Added: Boolean = false,
     /** 未解锁亮屏 ≥2 分钟的 +1 分是否已计入。 */
-    val screenLockedBonusAdded: Boolean = false,
+    val screenLockedBonus2Added: Boolean = false,
+    /** 解锁后亮屏 ≥15 分钟的 +1 分是否已计入。 */
+    val screenUnlockedBonus15Added: Boolean = false,
     /** 解锁后亮屏 ≥30 分钟的 +1 分是否已计入。 */
-    val screenUnlockedBonusAdded: Boolean = false,
-    /** 解锁后亮屏 ≥60 分钟的 +2 分是否已计入。 */
-    val screenUnlocked60BonusAdded: Boolean = false,
-    /** 前台应用变化次数。 */
-    val foregroundAppChanges: Int = 0,
+    val screenUnlockedBonus30Added: Boolean = false,
+    /** 解锁后亮屏 ≥45 分钟的 +1 分是否已计入。 */
+    val screenUnlockedBonus45Added: Boolean = false,
+    /** 解锁后亮屏 ≥60 分钟的 +1 分是否已计入。 */
+    val screenUnlockedBonus60Added: Boolean = false,
     /** 充电/拔电次数。 */
     val powerEvents: Int = 0,
     /** 移动数据开关变化次数。 */
@@ -76,10 +84,12 @@ data class DayState(
     /** 当前总分数（≥4 触发被动签到）。 */
     val score: Int
         get() = unlockCount * ScoreType.UNLOCK.delta +
-            (if (screenLockedBonusAdded) ScoreType.SCREEN_LOCKED.delta else 0) +
-            (if (screenUnlockedBonusAdded) ScoreType.SCREEN_UNLOCKED.delta else 0) +
-            (if (screenUnlocked60BonusAdded) ScoreType.SCREEN_UNLOCKED_60.delta else 0) +
-            foregroundAppChanges * ScoreType.FOREGROUND_APP.delta +
+            (if (screenLockedBonus1Added) ScoreType.SCREEN_LOCKED_1.delta else 0) +
+            (if (screenLockedBonus2Added) ScoreType.SCREEN_LOCKED_2.delta else 0) +
+            (if (screenUnlockedBonus15Added) ScoreType.SCREEN_UNLOCKED_15.delta else 0) +
+            (if (screenUnlockedBonus30Added) ScoreType.SCREEN_UNLOCKED_30.delta else 0) +
+            (if (screenUnlockedBonus45Added) ScoreType.SCREEN_UNLOCKED_45.delta else 0) +
+            (if (screenUnlockedBonus60Added) ScoreType.SCREEN_UNLOCKED_60.delta else 0) +
             powerEvents * ScoreType.POWER.delta +
             mobileDataToggles * ScoreType.MOBILE_DATA.delta +
             flipCount * ScoreType.FLIP.delta
@@ -104,10 +114,12 @@ class DailyEventManager(
         val UNLOCK_COUNT = intPreferencesKey("unlock_count")
         val SCREEN_LOCKED_MS = longPreferencesKey("screen_on_locked_ms")
         val SCREEN_UNLOCKED_MS = longPreferencesKey("screen_on_unlocked_ms")
-        val SCREEN_LOCKED_BONUS = booleanPreferencesKey("screen_locked_bonus")
-        val SCREEN_UNLOCKED_BONUS = booleanPreferencesKey("screen_unlocked_bonus")
-        val SCREEN_UNLOCKED_60_BONUS = booleanPreferencesKey("screen_unlocked_60_bonus")
-        val FOREGROUND_CHANGES = intPreferencesKey("foreground_changes")
+        val SCREEN_LOCKED_BONUS_1 = booleanPreferencesKey("screen_locked_bonus_1")
+        val SCREEN_LOCKED_BONUS_2 = booleanPreferencesKey("screen_locked_bonus_2")
+        val SCREEN_UNLOCKED_BONUS_15 = booleanPreferencesKey("screen_unlocked_bonus_15")
+        val SCREEN_UNLOCKED_BONUS_30 = booleanPreferencesKey("screen_unlocked_bonus_30")
+        val SCREEN_UNLOCKED_BONUS_45 = booleanPreferencesKey("screen_unlocked_bonus_45")
+        val SCREEN_UNLOCKED_BONUS_60 = booleanPreferencesKey("screen_unlocked_bonus_60")
         val POWER_EVENTS = intPreferencesKey("power_events")
         val MOBILE_DATA_TOGGLES = intPreferencesKey("mobile_data_toggles")
         val FLIP_COUNT = intPreferencesKey("flip_count")
@@ -126,10 +138,12 @@ class DailyEventManager(
             unlockCount = p[Keys.UNLOCK_COUNT] ?: 0,
             screenOnLockedMs = p[Keys.SCREEN_LOCKED_MS] ?: 0L,
             screenOnUnlockedMs = p[Keys.SCREEN_UNLOCKED_MS] ?: 0L,
-            screenLockedBonusAdded = p[Keys.SCREEN_LOCKED_BONUS] ?: false,
-            screenUnlockedBonusAdded = p[Keys.SCREEN_UNLOCKED_BONUS] ?: false,
-            screenUnlocked60BonusAdded = p[Keys.SCREEN_UNLOCKED_60_BONUS] ?: false,
-            foregroundAppChanges = p[Keys.FOREGROUND_CHANGES] ?: 0,
+            screenLockedBonus1Added = p[Keys.SCREEN_LOCKED_BONUS_1] ?: false,
+            screenLockedBonus2Added = p[Keys.SCREEN_LOCKED_BONUS_2] ?: false,
+            screenUnlockedBonus15Added = p[Keys.SCREEN_UNLOCKED_BONUS_15] ?: false,
+            screenUnlockedBonus30Added = p[Keys.SCREEN_UNLOCKED_BONUS_30] ?: false,
+            screenUnlockedBonus45Added = p[Keys.SCREEN_UNLOCKED_BONUS_45] ?: false,
+            screenUnlockedBonus60Added = p[Keys.SCREEN_UNLOCKED_BONUS_60] ?: false,
             powerEvents = p[Keys.POWER_EVENTS] ?: 0,
             mobileDataToggles = p[Keys.MOBILE_DATA_TOGGLES] ?: 0,
             flipCount = p[Keys.FLIP_COUNT] ?: 0,
@@ -158,10 +172,12 @@ class DailyEventManager(
                 p[Keys.UNLOCK_COUNT] = 0
                 p[Keys.SCREEN_LOCKED_MS] = 0L
                 p[Keys.SCREEN_UNLOCKED_MS] = 0L
-                p[Keys.SCREEN_LOCKED_BONUS] = false
-                p[Keys.SCREEN_UNLOCKED_BONUS] = false
-                p[Keys.SCREEN_UNLOCKED_60_BONUS] = false
-                p[Keys.FOREGROUND_CHANGES] = 0
+                p[Keys.SCREEN_LOCKED_BONUS_1] = false
+                p[Keys.SCREEN_LOCKED_BONUS_2] = false
+                p[Keys.SCREEN_UNLOCKED_BONUS_15] = false
+                p[Keys.SCREEN_UNLOCKED_BONUS_30] = false
+                p[Keys.SCREEN_UNLOCKED_BONUS_45] = false
+                p[Keys.SCREEN_UNLOCKED_BONUS_60] = false
                 p[Keys.POWER_EVENTS] = 0
                 p[Keys.MOBILE_DATA_TOGGLES] = 0
                 p[Keys.FLIP_COUNT] = 0
@@ -193,10 +209,12 @@ class DailyEventManager(
         context.dayStateDataStore.edit { p ->
             when (type) {
                 ScoreType.UNLOCK -> p[Keys.UNLOCK_COUNT] = (p[Keys.UNLOCK_COUNT] ?: 0) + 1
-                ScoreType.SCREEN_LOCKED -> p[Keys.SCREEN_LOCKED_BONUS] = true
-                ScoreType.SCREEN_UNLOCKED -> p[Keys.SCREEN_UNLOCKED_BONUS] = true
-                ScoreType.SCREEN_UNLOCKED_60 -> p[Keys.SCREEN_UNLOCKED_60_BONUS] = true
-                ScoreType.FOREGROUND_APP -> p[Keys.FOREGROUND_CHANGES] = (p[Keys.FOREGROUND_CHANGES] ?: 0) + 1
+                ScoreType.SCREEN_LOCKED_1 -> p[Keys.SCREEN_LOCKED_BONUS_1] = true
+                ScoreType.SCREEN_LOCKED_2 -> p[Keys.SCREEN_LOCKED_BONUS_2] = true
+                ScoreType.SCREEN_UNLOCKED_15 -> p[Keys.SCREEN_UNLOCKED_BONUS_15] = true
+                ScoreType.SCREEN_UNLOCKED_30 -> p[Keys.SCREEN_UNLOCKED_BONUS_30] = true
+                ScoreType.SCREEN_UNLOCKED_45 -> p[Keys.SCREEN_UNLOCKED_BONUS_45] = true
+                ScoreType.SCREEN_UNLOCKED_60 -> p[Keys.SCREEN_UNLOCKED_BONUS_60] = true
                 ScoreType.POWER -> p[Keys.POWER_EVENTS] = (p[Keys.POWER_EVENTS] ?: 0) + 1
                 ScoreType.MOBILE_DATA -> p[Keys.MOBILE_DATA_TOGGLES] = (p[Keys.MOBILE_DATA_TOGGLES] ?: 0) + 1
                 ScoreType.FLIP -> p[Keys.FLIP_COUNT] = (p[Keys.FLIP_COUNT] ?: 0) + 1
@@ -211,61 +229,84 @@ class DailyEventManager(
     }
 
     /**
-     * 累加未解锁亮屏时长，并在达到阈值（2 分钟）时一次性 +1。
+     * 累加未解锁亮屏时长，并在达到阈值（1 分钟 / 2 分钟）时各一次性 +1。
      */
     suspend fun addScreenOnLockedMs(deltaMs: Long) {
         if (current().checkedIn) return
         if (deltaMs <= 0) return
         ensureSameDay()
-        val bonusAlready = current().screenLockedBonusAdded
+        val bonus1Already = current().screenLockedBonus1Added
+        val bonus2Already = current().screenLockedBonus2Added
         context.dayStateDataStore.edit { p ->
             val newTotal = (p[Keys.SCREEN_LOCKED_MS] ?: 0L) + deltaMs
             p[Keys.SCREEN_LOCKED_MS] = newTotal
-            if (!bonusAlready && newTotal >= SCREEN_LOCKED_THRESHOLD_MS) {
-                p[Keys.SCREEN_LOCKED_BONUS] = true
+            if (!bonus1Already && newTotal >= SCREEN_LOCKED_1_THRESHOLD_MS) {
+                p[Keys.SCREEN_LOCKED_BONUS_1] = true
+            }
+            if (!bonus2Already && newTotal >= SCREEN_LOCKED_2_THRESHOLD_MS) {
+                p[Keys.SCREEN_LOCKED_BONUS_2] = true
             }
         }
         val after = current()
-        if (after.screenLockedBonusAdded && !bonusAlready) {
-            log(ScoreType.SCREEN_LOCKED.logTag, "未解锁亮屏累计 ${after.screenOnLockedMs} ms ≥ 2分钟 (+1)")
-            if (!after.checkedIn && after.score >= after.passiveThreshold) {
-                triggerPassiveCheckIn("分数达 ${after.score} ≥ ${after.passiveThreshold}，被动签到")
-            }
+        if (after.screenLockedBonus1Added && !bonus1Already) {
+            log(ScoreType.SCREEN_LOCKED_1.logTag, "未解锁亮屏累计 ${after.screenOnLockedMs} ms ≥ 1分钟 (+1)")
+            checkPassive(after)
+        }
+        if (after.screenLockedBonus2Added && !bonus2Already) {
+            log(ScoreType.SCREEN_LOCKED_2.logTag, "未解锁亮屏累计 ${after.screenOnLockedMs} ms ≥ 2分钟 (+1)")
+            checkPassive(after)
         }
     }
 
     /**
-     * 累加解锁后亮屏时长，并在达到阈值（30 分钟 / 60 分钟）时一次性 +1 / +2。
-     * 两个阈值共享同一个累计时长，不是独立计算。
+     * 累加解锁后亮屏时长（仅 7:00-22:30 有效），并在达到阈值时各一次性 +1。
      */
     suspend fun addScreenOnUnlockedMs(deltaMs: Long) {
         if (current().checkedIn) return
         if (deltaMs <= 0) return
         ensureSameDay()
-        val bonus30Already = current().screenUnlockedBonusAdded
-        val bonus60Already = current().screenUnlocked60BonusAdded
+        val bonus15Already = current().screenUnlockedBonus15Added
+        val bonus30Already = current().screenUnlockedBonus30Added
+        val bonus45Already = current().screenUnlockedBonus45Added
+        val bonus60Already = current().screenUnlockedBonus60Added
         context.dayStateDataStore.edit { p ->
             val newTotal = (p[Keys.SCREEN_UNLOCKED_MS] ?: 0L) + deltaMs
             p[Keys.SCREEN_UNLOCKED_MS] = newTotal
-            if (!bonus30Already && newTotal >= SCREEN_UNLOCKED_THRESHOLD_MS) {
-                p[Keys.SCREEN_UNLOCKED_BONUS] = true
+            if (!bonus15Already && newTotal >= SCREEN_UNLOCKED_15_THRESHOLD_MS) {
+                p[Keys.SCREEN_UNLOCKED_BONUS_15] = true
+            }
+            if (!bonus30Already && newTotal >= SCREEN_UNLOCKED_30_THRESHOLD_MS) {
+                p[Keys.SCREEN_UNLOCKED_BONUS_30] = true
+            }
+            if (!bonus45Already && newTotal >= SCREEN_UNLOCKED_45_THRESHOLD_MS) {
+                p[Keys.SCREEN_UNLOCKED_BONUS_45] = true
             }
             if (!bonus60Already && newTotal >= SCREEN_UNLOCKED_60_THRESHOLD_MS) {
-                p[Keys.SCREEN_UNLOCKED_60_BONUS] = true
+                p[Keys.SCREEN_UNLOCKED_BONUS_60] = true
             }
         }
         val after = current()
-        if (after.screenUnlockedBonusAdded && !bonus30Already) {
-            log(ScoreType.SCREEN_UNLOCKED.logTag, "解锁后亮屏累计 ${after.screenOnUnlockedMs} ms ≥ 30分钟 (+1)")
-            if (!after.checkedIn && after.score >= after.passiveThreshold) {
-                triggerPassiveCheckIn("分数达 ${after.score} ≥ ${after.passiveThreshold}，被动签到")
-            }
+        if (after.screenUnlockedBonus15Added && !bonus15Already) {
+            log(ScoreType.SCREEN_UNLOCKED_15.logTag, "解锁后亮屏累计 ${after.screenOnUnlockedMs} ms ≥ 15分钟 (+1)")
+            checkPassive(after)
         }
-        if (after.screenUnlocked60BonusAdded && !bonus60Already) {
-            log(ScoreType.SCREEN_UNLOCKED_60.logTag, "解锁后亮屏累计 ${after.screenOnUnlockedMs} ms ≥ 60分钟 (+2)")
-            if (!after.checkedIn && after.score >= after.passiveThreshold) {
-                triggerPassiveCheckIn("分数达 ${after.score} ≥ ${after.passiveThreshold}，被动签到")
-            }
+        if (after.screenUnlockedBonus30Added && !bonus30Already) {
+            log(ScoreType.SCREEN_UNLOCKED_30.logTag, "解锁后亮屏累计 ${after.screenOnUnlockedMs} ms ≥ 30分钟 (+1)")
+            checkPassive(after)
+        }
+        if (after.screenUnlockedBonus45Added && !bonus45Already) {
+            log(ScoreType.SCREEN_UNLOCKED_45.logTag, "解锁后亮屏累计 ${after.screenOnUnlockedMs} ms ≥ 45分钟 (+1)")
+            checkPassive(after)
+        }
+        if (after.screenUnlockedBonus60Added && !bonus60Already) {
+            log(ScoreType.SCREEN_UNLOCKED_60.logTag, "解锁后亮屏累计 ${after.screenOnUnlockedMs} ms ≥ 60分钟 (+1)")
+            checkPassive(after)
+        }
+    }
+
+    private suspend fun checkPassive(after: DayState) {
+        if (!after.checkedIn && after.score >= after.passiveThreshold) {
+            triggerPassiveCheckIn("分数达 ${after.score} ≥ ${after.passiveThreshold}，被动签到")
         }
     }
 
@@ -361,13 +402,22 @@ class DailyEventManager(
     }
 
     companion object {
-        /** 未解锁亮屏 +1 的阈值：2 分钟。 */
-        const val SCREEN_LOCKED_THRESHOLD_MS = 2L * 60_000L
+        /** 未解锁亮屏 +1 的阈值：1 分钟。 */
+        const val SCREEN_LOCKED_1_THRESHOLD_MS = 1L * 60_000L
 
-        /** 解锁后亮屏 +1 的阈值：30 分钟。 */
-        const val SCREEN_UNLOCKED_THRESHOLD_MS = 30L * 60_000L
+        /** 未解锁亮屏再 +1 的阈值：2 分钟。 */
+        const val SCREEN_LOCKED_2_THRESHOLD_MS = 2L * 60_000L
 
-        /** 解锁后亮屏 +2 的阈值：60 分钟。 */
+        /** 解锁后亮屏 +1 的阈值：15 分钟。 */
+        const val SCREEN_UNLOCKED_15_THRESHOLD_MS = 15L * 60_000L
+
+        /** 解锁后亮屏再 +1 的阈值：30 分钟。 */
+        const val SCREEN_UNLOCKED_30_THRESHOLD_MS = 30L * 60_000L
+
+        /** 解锁后亮屏再 +1 的阈值：45 分钟。 */
+        const val SCREEN_UNLOCKED_45_THRESHOLD_MS = 45L * 60_000L
+
+        /** 解锁后亮屏再 +1 的阈值：60 分钟。 */
         const val SCREEN_UNLOCKED_60_THRESHOLD_MS = 60L * 60_000L
     }
 }

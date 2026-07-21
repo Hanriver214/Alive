@@ -322,27 +322,40 @@ private fun ScoreBreakdownCard(state: DayState) {
                 delta = ScoreType.UNLOCK.delta
             )
             ScoreRow(
-                label = stringResource(R.string.score_screen_locked),
-                count = if (state.screenLockedBonusAdded) 1 else 0,
-                delta = ScoreType.SCREEN_LOCKED.delta,
+                label = stringResource(R.string.score_screen_locked_1),
+                count = if (state.screenLockedBonus1Added) 1 else 0,
+                delta = ScoreType.SCREEN_LOCKED_1.delta,
+                extra = "累计 ${state.screenOnLockedMs / 1000}s / 60s"
+            )
+            ScoreRow(
+                label = stringResource(R.string.score_screen_locked_2),
+                count = if (state.screenLockedBonus2Added) 1 else 0,
+                delta = ScoreType.SCREEN_LOCKED_2.delta,
                 extra = "累计 ${state.screenOnLockedMs / 1000}s / 120s"
             )
             ScoreRow(
-                label = stringResource(R.string.score_screen_unlocked),
-                count = if (state.screenUnlockedBonusAdded) 1 else 0,
-                delta = ScoreType.SCREEN_UNLOCKED.delta,
+                label = stringResource(R.string.score_screen_unlocked_15),
+                count = if (state.screenUnlockedBonus15Added) 1 else 0,
+                delta = ScoreType.SCREEN_UNLOCKED_15.delta,
+                extra = "累计 ${state.screenOnUnlockedMs / 1000}s / 900s (7:00-22:30)"
+            )
+            ScoreRow(
+                label = stringResource(R.string.score_screen_unlocked_30),
+                count = if (state.screenUnlockedBonus30Added) 1 else 0,
+                delta = ScoreType.SCREEN_UNLOCKED_30.delta,
                 extra = "累计 ${state.screenOnUnlockedMs / 1000}s / 1800s"
             )
             ScoreRow(
-                label = stringResource(R.string.score_screen_unlocked_60),
-                count = if (state.screenUnlocked60BonusAdded) 1 else 0,
-                delta = ScoreType.SCREEN_UNLOCKED_60.delta,
-                extra = "累计 ${state.screenOnUnlockedMs / 1000}s / 3600s"
+                label = stringResource(R.string.score_screen_unlocked_45),
+                count = if (state.screenUnlockedBonus45Added) 1 else 0,
+                delta = ScoreType.SCREEN_UNLOCKED_45.delta,
+                extra = "累计 ${state.screenOnUnlockedMs / 1000}s / 2700s"
             )
             ScoreRow(
-                label = stringResource(R.string.score_foreground),
-                count = state.foregroundAppChanges,
-                delta = ScoreType.FOREGROUND_APP.delta
+                label = stringResource(R.string.score_screen_unlocked_60),
+                count = if (state.screenUnlockedBonus60Added) 1 else 0,
+                delta = ScoreType.SCREEN_UNLOCKED_60.delta,
+                extra = "累计 ${state.screenOnUnlockedMs / 1000}s / 3600s"
             )
             ScoreRow(
                 label = stringResource(R.string.score_power),

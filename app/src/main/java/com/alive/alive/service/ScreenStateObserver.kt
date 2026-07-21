@@ -18,8 +18,9 @@ import kotlinx.coroutines.launch
 
 /**
  * 计分项（时长型）：
- *  - 未解锁状态屏幕亮起总时长 ≥2 分钟  +1（一次性）
- *  - 解锁后亮屏总时长 ≥30 分钟        +1（一次性）
+ *  - 未解锁状态屏幕亮起总时长 ≥1 分钟 +1（一次性），≥2 分钟再 +1（一次性）
+ *  - 解锁后亮屏总时长（仅 7:00-22:30 累计）：
+ *    ≥15 分钟 +1，≥30 分钟再 +1，≥45 分钟再 +1，≥60 分钟再 +1
  *
  * 实现：
  *  - ACTION_SCREEN_ON  记录亮屏起点 + 当时是否处于锁屏状态，启动定时快照
@@ -147,7 +148,10 @@ class ScreenStateObserver(
         if (startedLocked) {
             scope.launch { submitLocked(delta) }
         } else {
-            scope.launch { submitUnlocked(delta) }
+            val daytimeDelta = calculateDaytimeDelta(since, now)
+            if (daytimeDelta > 0) {
+                scope.launch { submitUnlocked(daytimeDelta) }
+            }
         }
         Log.i(TAG, "flushCurrentSegment: delta=$delta ms, locked=$startedLocked")
     }
@@ -170,7 +174,10 @@ class ScreenStateObserver(
         if (startedLocked) {
             scope.launch { submitLocked(delta) }
         } else {
-            scope.launch { submitUnlocked(delta) }
+            val daytimeDelta = calculateDaytimeDelta(lastSnapshot, now)
+            if (daytimeDelta > 0) {
+                scope.launch { submitUnlocked(daytimeDelta) }
+            }
         }
         Log.d(TAG, "doSnapshot: delta=$delta ms, locked=$startedLocked")
     }
@@ -189,6 +196,49 @@ class ScreenStateObserver(
             AliveDatabase.getInstance(context).eventLogDao()
         )
         mgr.addScreenOnUnlockedMs(deltaMs)
+    }
+
+    /**
+     * 计算 [startMs, endMs] 区间内落在 7:00-22:30 的毫秒数。
+     * 自动处理跨天情况。
+     */
+    private fun calculateDaytimeDelta(startMs: Long, endMs: Long): Long {
+        if (endMs <= startMs) return 0L
+        val tz = java.util.TimeZone.getDefault()
+        val start = java.util.Calendar.getInstance(tz).apply { timeInMillis = startMs }
+        val end = java.util.Calendar.getInstance(tz).apply { timeInMillis = endMs }
+
+        var total = 0L
+        var current = start.clone() as java.util.Calendar
+
+        while (current.timeInMillis < endMs) {
+            val dayStart = current.clone() as java.util.Calendar
+            dayStart.set(java.util.Calendar.HOUR_OF_DAY, 7)
+            dayStart.set(java.util.Calendar.MINUTE, 0)
+            dayStart.set(java.util.Calendar.SECOND, 0)
+            dayStart.set(java.util.Calendar.MILLISECOND, 0)
+
+            val dayEnd = current.clone() as java.util.Calendar
+            dayEnd.set(java.util.Calendar.HOUR_OF_DAY, 22)
+            dayEnd.set(java.util.Calendar.MINUTE, 30)
+            dayEnd.set(java.util.Calendar.SECOND, 0)
+            dayEnd.set(java.util.Calendar.MILLISECOND, 0)
+
+            val segmentStart = maxOf(current.timeInMillis, dayStart.timeInMillis)
+            val segmentEnd = minOf(endMs, dayEnd.timeInMillis)
+
+            if (segmentEnd > segmentStart) {
+                total += segmentEnd - segmentStart
+            }
+
+            current.add(java.util.Calendar.DAY_OF_MONTH, 1)
+            current.set(java.util.Calendar.HOUR_OF_DAY, 0)
+            current.set(java.util.Calendar.MINUTE, 0)
+            current.set(java.util.Calendar.SECOND, 0)
+            current.set(java.util.Calendar.MILLISECOND, 0)
+        }
+
+        return total
     }
 
     companion object {
