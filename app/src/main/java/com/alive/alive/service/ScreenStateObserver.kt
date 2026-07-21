@@ -7,6 +7,7 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.os.Handler
 import android.util.Log
+import androidx.core.content.ContextCompat
 import com.alive.alive.data.AliveDatabase
 import com.alive.alive.state.DailyEventManager
 import kotlinx.coroutines.CoroutineScope
@@ -57,7 +58,12 @@ class ScreenStateObserver(
             addAction(Intent.ACTION_SCREEN_OFF)
             addAction(Intent.ACTION_USER_PRESENT)
         }
-        context.registerReceiver(receiver, filter, Context.RECEIVER_NOT_EXPORTED)
+        // ACTION_SCREEN_ON/OFF/USER_PRESENT 是 protected broadcast，只有系统能发送，
+        // 使用 RECEIVER_EXPORTED 确保能可靠接收（部分 ROM 上 NOT_EXPORTED 会丢弃这类广播）
+        ContextCompat.registerReceiver(
+            context, receiver, filter,
+            ContextCompat.RECEIVER_EXPORTED
+        )
         Log.i(TAG, "ScreenStateObserver started")
     }
 
