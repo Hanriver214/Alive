@@ -21,13 +21,16 @@ import kotlinx.coroutines.launch
  *  - 解锁后亮屏总时长 ≥30 分钟        +1（一次性）
  *
  * 实现：
- *  - ACTION_SCREEN_ON  记录亮屏起点 + 当时是否处于锁屏状态
- *  - ACTION_SCREEN_OFF 计算本次亮屏时长，按"亮屏期间是否解锁过"分别累加
+ *  - ACTION_SCREEN_ON  记录亮屏起点 + 当时是否处于锁屏状态，启动定时快照
+ *  - ACTION_SCREEN_OFF 计算本次亮屏时长，按"亮屏期间是否解锁过"分别累加，停止定时快照
+ *  - ACTION_USER_PRESENT 切换时段：把 locked 段落账，剩余算 unlocked
+ *
+ * 定时快照机制（每 30 秒）：
+ *  - 亮屏期间定时把已累积时长写入 DataStore，让界面能实时刷新
+ *  - 同时防止进程被杀时丢失过多数据（最多丢失最后 30 秒）
  *
  * 注意：Android 上 ACTION_USER_PRESENT 在 ACTION_SCREEN_ON 之后触发，
  * 因此一次亮屏周期可能横跨「未解锁」和「已解锁」两段。
- * 这里在 SCREEN_ON 时用 KeyguardManager 判断初始状态，并在 USER_PRESENT
- * 时切分时段：把已累加到 locked 的部分截断，剩余算到 unlocked。
  */
 class ScreenStateObserver(
     private val context: Context,
@@ -41,6 +44,18 @@ class ScreenStateObserver(
     private var screenOnSince: Long? = null
     /** 当前亮屏周期开始时是否处于锁屏状态。 */
     private var startedLocked: Boolean = false
+    /** 上次快照时已累加的时长起点（用于计算增量）。 */
+    private var lastSnapshotSince: Long? = null
+
+    /** 快照间隔（毫秒）。 */
+    private val snapshotIntervalMs = 30_000L
+
+    private val snapshotRunnable = object : Runnable {
+        override fun run() {
+            doSnapshot()
+            handler.postDelayed(this, snapshotIntervalMs)
+        }
+    }
 
     private val receiver = object : BroadcastReceiver() {
         override fun onReceive(ctx: Context, intent: Intent) {
@@ -68,27 +83,21 @@ class ScreenStateObserver(
     }
 
     fun stop() {
+        handler.removeCallbacks(snapshotRunnable)
         runCatching { context.unregisterReceiver(receiver) }
         // 停止时若屏幕仍亮着，把已累计的时长落账一次，避免丢失
-        screenOnSince?.let { since ->
-            val now = System.currentTimeMillis()
-            val delta = now - since
-            if (delta > 0) {
-                if (startedLocked) {
-                    scope.launch { submitLocked(delta) }
-                } else {
-                    scope.launch { submitUnlocked(delta) }
-                }
-            }
-        }
+        flushCurrentSegment()
         screenOnSince = null
         Log.i(TAG, "ScreenStateObserver stopped")
     }
 
     private fun handleScreenOn() {
         screenOnSince = System.currentTimeMillis()
+        lastSnapshotSince = screenOnSince
         startedLocked = keyguardManager.isKeyguardLocked
         Log.i(TAG, "SCREEN_ON, startedLocked=$startedLocked")
+        // 启动定时快照
+        handler.postDelayed(snapshotRunnable, snapshotIntervalMs)
     }
 
     private fun handleUserPresent() {
@@ -101,25 +110,52 @@ class ScreenStateObserver(
         }
         // 重置起点为现在，标记为已解锁
         screenOnSince = now
+        lastSnapshotSince = now
         startedLocked = false
         Log.i(TAG, "USER_PRESENT, switched to unlocked segment, lockedDelta=$delta ms")
     }
 
     private fun handleScreenOff() {
-        val since = screenOnSince ?: run {
-            screenOnSince = null
-            return
-        }
+        // 停止定时快照
+        handler.removeCallbacks(snapshotRunnable)
+        flushCurrentSegment()
+        screenOnSince = null
+        lastSnapshotSince = null
+        Log.i(TAG, "SCREEN_OFF")
+    }
+
+    /** 把当前亮屏段的时长落账，并清空起点。 */
+    private fun flushCurrentSegment() {
+        val since = screenOnSince ?: return
         val now = System.currentTimeMillis()
         val delta = now - since
-        screenOnSince = null
         if (delta <= 0) return
         if (startedLocked) {
             scope.launch { submitLocked(delta) }
         } else {
             scope.launch { submitUnlocked(delta) }
         }
-        Log.i(TAG, "SCREEN_OFF, delta=$delta ms, locked=$startedLocked")
+        Log.i(TAG, "flushCurrentSegment: delta=$delta ms, locked=$startedLocked")
+    }
+
+    /** 定时快照：把从上次快照到现在的增量写入。 */
+    private fun doSnapshot() {
+        val since = screenOnSince ?: return
+        val lastSnapshot = lastSnapshotSince ?: since
+        val now = System.currentTimeMillis()
+
+        // 只写入增量部分
+        val delta = now - lastSnapshot
+        if (delta <= 0) return
+
+        lastSnapshotSince = now
+
+        if (startedLocked) {
+            scope.launch { submitLocked(delta) }
+        } else {
+            scope.launch { submitUnlocked(delta) }
+        }
+        Log.d(TAG, "doSnapshot: delta=$delta ms, locked=$startedLocked")
     }
 
     private suspend fun submitLocked(deltaMs: Long) {
