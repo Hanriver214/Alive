@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.os.Handler
+import android.os.PowerManager
 import android.util.Log
 import androidx.core.content.ContextCompat
 import com.alive.alive.data.AliveDatabase
@@ -79,6 +80,18 @@ class ScreenStateObserver(
             context, receiver, filter,
             ContextCompat.RECEIVER_EXPORTED
         )
+        // 若服务启动时屏幕已经亮着，立即初始化并启动定时快照
+        //（否则必须等下一次 SCREEN_ON 才能开始统计）
+        val powerManager = context.getSystemService(Context.POWER_SERVICE) as PowerManager
+        if (powerManager.isInteractive) {
+            val now = System.currentTimeMillis()
+            screenOnSince = now
+            lastSnapshotSince = now
+            startedLocked = keyguardManager.isKeyguardLocked
+            handler.removeCallbacks(snapshotRunnable)
+            handler.postDelayed(snapshotRunnable, snapshotIntervalMs)
+            Log.i(TAG, "Screen already on at start, startedLocked=$startedLocked")
+        }
         Log.i(TAG, "ScreenStateObserver started")
     }
 
@@ -96,7 +109,8 @@ class ScreenStateObserver(
         lastSnapshotSince = screenOnSince
         startedLocked = keyguardManager.isKeyguardLocked
         Log.i(TAG, "SCREEN_ON, startedLocked=$startedLocked")
-        // 启动定时快照
+        // 先移除再启动，防止重复调度
+        handler.removeCallbacks(snapshotRunnable)
         handler.postDelayed(snapshotRunnable, snapshotIntervalMs)
     }
 
@@ -149,6 +163,9 @@ class ScreenStateObserver(
         if (delta <= 0) return
 
         lastSnapshotSince = now
+        // 关键：把 screenOnSince 也推进到 now，避免 flushCurrentSegment / handleUserPresent
+        // 把已经快照过的时长再次计入，导致重复统计。
+        screenOnSince = now
 
         if (startedLocked) {
             scope.launch { submitLocked(delta) }
