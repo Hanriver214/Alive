@@ -40,7 +40,9 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -51,10 +53,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.alive.alive.R
 import com.alive.alive.state.DayState
@@ -75,13 +80,30 @@ fun DashboardScreen(
     val state by viewModel.dayState.collectAsStateWithLifecycle()
     val cfg by viewModel.config.collectAsStateWithLifecycle()
     val testMailResult by viewModel.testMailResult.collectAsStateWithLifecycle()
-    val hasUsagePermission = remember { UsageStatsHelper.hasPermission(context) }
+    var permissionCheckTrigger by remember { mutableStateOf(0) }
+    val hasUsagePermission by remember(permissionCheckTrigger) {
+        derivedStateOf { UsageStatsHelper.hasPermission(context) }
+    }
 
     LaunchedEffect(testMailResult) {
         testMailResult?.let {
             if (it.isNotBlank() && it != "正在发送…") {
                 showMailResult = it
             }
+        }
+    }
+
+    // 从设置页返回时重新检测权限状态
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                permissionCheckTrigger += 1
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
         }
     }
 
@@ -141,16 +163,20 @@ fun DashboardScreen(
                             android.provider.Settings.ACTION_USAGE_ACCESS_SETTINGS
                         )
                         context.startActivity(intent)
+                        // 跳转后用户可能已授予权限，返回时重新检测
+                        permissionCheckTrigger += 1
                     }
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Text(
-                            text = "应用启动检测需要「使用情况访问权限」",
+                            text = "开启「应用启动」计分",
                             fontWeight = FontWeight.SemiBold,
                             color = MaterialTheme.colorScheme.onErrorContainer
                         )
                         Text(
-                            text = "点击前往系统设置开启，开启后应用启动计分才能生效",
+                            text = "功能用途：检测今日是否有其他应用进入前台，+1 分。\n" +
+                                "需要「使用情况访问权限」：仅读取系统记录的最近使用应用包名，" +
+                                "不会上传或记录任何隐私信息。点击前往开启。",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onErrorContainer
                         )
