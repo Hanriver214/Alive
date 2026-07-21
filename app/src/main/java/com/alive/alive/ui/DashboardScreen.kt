@@ -50,6 +50,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -58,12 +59,14 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.alive.alive.R
 import com.alive.alive.state.DayState
 import com.alive.alive.state.ScoreType
+import com.alive.alive.util.UsageStatsHelper
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DashboardScreen(
     viewModel: MainViewModel
 ) {
+    val context = LocalContext.current
     var showSettings by remember { mutableStateOf(false) }
     var showLogs by remember { mutableStateOf(false) }
     var menuExpanded by remember { mutableStateOf(false) }
@@ -72,6 +75,7 @@ fun DashboardScreen(
     val state by viewModel.dayState.collectAsStateWithLifecycle()
     val cfg by viewModel.config.collectAsStateWithLifecycle()
     val testMailResult by viewModel.testMailResult.collectAsStateWithLifecycle()
+    val hasUsagePermission = remember { UsageStatsHelper.hasPermission(context) }
 
     LaunchedEffect(testMailResult) {
         testMailResult?.let {
@@ -126,6 +130,34 @@ fun DashboardScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
+            if (!hasUsagePermission) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.errorContainer
+                    ),
+                    onClick = {
+                        val intent = android.content.Intent(
+                            android.provider.Settings.ACTION_USAGE_ACCESS_SETTINGS
+                        )
+                        context.startActivity(intent)
+                    }
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text(
+                            text = "应用启动检测需要「使用情况访问权限」",
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onErrorContainer
+                        )
+                        Text(
+                            text = "点击前往系统设置开启，开启后应用启动计分才能生效",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onErrorContainer
+                        )
+                    }
+                }
+            }
+
             Text(
                 text = "今天，${viewModel.dayState.collectAsStateWithLifecycle().value.dayKey.ifEmpty { "—" }}",
                 style = MaterialTheme.typography.headlineMedium
